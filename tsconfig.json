@@ -20,7 +20,8 @@
     "strictPropertyInitialization": false,
     "types": [
       "vitest/globals",
-      "node"
+      "node",
+      "@clerk/express"
     ],
     "resolveJsonModule": true
   }
