@@ -8,9 +8,10 @@ import { SpotModule } from './spot/spot.module.js';
 import { BuildingModule } from './building/building.module.js';
 import { BookingModule } from './booking/booking.module.js';
 import { CarModule } from './car/car.module.js';
+import { StorageModule } from './storage/storage.module.js';
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true }), DatabaseModule, AdminModule, SpotModule, BuildingModule, BookingModule, CarModule],
+  imports: [ConfigModule.forRoot({ isGlobal: true }), DatabaseModule, AdminModule, SpotModule, BuildingModule, BookingModule, CarModule, StorageModule],
   controllers: [AppController],
   providers: [AppService],
 })

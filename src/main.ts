@@ -38,9 +38,18 @@ async function bootstrap() {
     .setVersion('0.1')
     .addBearerAuth()
     .build();
-  SwaggerModule.setup('docs', app, () =>
-    SwaggerModule.createDocument(app, swaggerConfig),
+
+  const document = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup('docs', app, document);
+
+  // Serve OpenAPI JSON
+  app.getHttpAdapter().get('/openapi.json', (req, res) => {
+    res.json(document);
+  });
+
+  SwaggerModule.setup('docs', app, document,
   );
+
 
   app.enableShutdownHooks();
   await app.listen(process.env.PORT ?? 3000);

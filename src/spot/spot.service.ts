@@ -1,57 +1,46 @@
 import { LessThanOrEqual, MoreThanOrEqual, Repository } from 'typeorm';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Spot } from './entities/spot.entity.js';
+import { Spot, SpotStatus } from './entities/spot.entity.js';
 import { CreateSpotDto } from './dto/create-spot.dto.js';
 import { UpdateSpotDto } from './dto/update-spot.dto.js';
 import { Schedule } from './schedule/entities/schedule.entity.js';
-import {
-  S3Client,
-  PutObjectCommand,
-  GetObjectCommand,
-  ListObjectsV2Command,
-} from '@aws-sdk/client-s3';
-import { ConfigService } from '@nestjs/config';
+import { randomUUID } from 'node:crypto';
+import { StorageService } from '../storage/storage.service.js';
 
 @Injectable()
 export class SpotService {
-  private readonly s3;
   constructor(
     @InjectRepository(Spot) private readonly spotRepository: Repository<Spot>,
     @InjectRepository(Schedule)
     private readonly scheduleRepository: Repository<Schedule>,
-    private readonly configService: ConfigService,
+    private readonly storage: StorageService,
+  ) {}
+
+  async create(
+    userId: string,
+    buildingId: string,
+    createSpotDto: CreateSpotDto,
+    // file: Express.Multer.File,
   ) {
-    this.s3 = new S3Client([
-      {
-        region: 'auto', // Required by AWS SDK, not used by R2
-        endpoint: this.configService.get<string>('JURISDICTION_SPECIFIC_URL'),
-        credentials: {
-          accessKeyId: this.configService.get<string>('ACCESS_KEY_ID'),
-          secretAccessKey: this.configService.get<string>('SECRET_ACCESS_KEY'),
-        },
-      },
-    ]);
-  }
+    // const fileId = await this.storage.upload(`${randomUUID()}.pdf`, file);
 
-  async create(userId: string, buildingId: string, createSpotDto: CreateSpotDto) {
-    // const fileId = await new PutObjectCommand({
-    //   Bucket: this.configService.get<string>('R2_BUCKET_NAME'),
-    //   Key: 'myfile.txt',
-    //   Body: createSpotDto.fileId,
-    // });
-
-    const newSpot = this.spotRepository.create({
-      userId,
-      buildingId,
-      number: createSpotDto.number,
-      description: createSpotDto.description,
-      long: createSpotDto.location.long,
-      lat: createSpotDto.location.lat,
-      // fileId: 'TO_DO'
-    });
-
-    return this.spotRepository.save(newSpot);
+    try {
+      return await this.spotRepository.save(
+        this.spotRepository.create({
+          userId,
+          buildingId,
+          number: createSpotDto.number,
+          description: createSpotDto.description,
+          // lat: createSpotDto.location.lat,
+          // long: createSpotDto.location.long,
+          // fileId,
+        }),
+      );
+    } catch (error) {
+      // await this.storage.delete(fileId); // don't leave a file nothing points to
+      throw error;
+    }
   }
 
   findAll() {
@@ -62,18 +51,40 @@ export class SpotService {
     return this.spotRepository.findOneBy({ id });
   }
 
+  mine(userId: string) {
+    return this.spotRepository.findBy({ userId });
+  }
+
+  booking(spotId: string) {
+    return this.scheduleRepository.findBy({ spotId });
+  }
+
   findByInterval(dayOfWeek: number, startMinute: number, endMinute: number) {
-    return this.scheduleRepository.find({
-      where: {
-        dayOfWeek,
-        startMinute: LessThanOrEqual(startMinute),
-        endMinute: MoreThanOrEqual(endMinute),
-      },
-    });
+    return this.spotRepository
+      .createQueryBuilder('spot')
+      .innerJoin('spot.schedules', 'schedule')
+      .where('schedule.dayOfWeek = :dayOfWeek', { dayOfWeek })
+      .andWhere('schedule.startMinute <= :startMinute', { startMinute })
+      .andWhere('schedule.endMinute >= :endMinute', { endMinute })
+      .andWhere((qb) => {
+        const sub = qb
+          .subQuery()
+          .select('booking.spotId')
+          .from('booking', 'booking')
+          .where('booking.dayOfWeek = :dayOfWeek')
+          .andWhere('booking.startMinute < :endMinute')
+          .andWhere('booking.endMinute > :startMinute')
+          .getQuery();
+        return 'spot.id NOT IN ' + sub;
+      })
+      .getMany();
   }
 
   async update(id: string, updateSpotDto: UpdateSpotDto) {
-    await this.spotRepository.update(id, updateSpotDto);
+    await this.spotRepository.update(id, {
+      ...updateSpotDto,
+      // status: SpotStatus.PENDING,
+    });
     return this.findOne(id);
   }
 

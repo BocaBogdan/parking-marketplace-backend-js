@@ -4,8 +4,8 @@ import { ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class InviteUsersDto {
-  @ApiProperty({type: InviteUserDto})
-  @ValidateNested({each: true})
+  @ApiProperty({ type: InviteUserDto, isArray: true })
+  @ValidateNested({ each: true })
   @Type(() => InviteUserDto)
   invites: InviteUserDto[];
 }

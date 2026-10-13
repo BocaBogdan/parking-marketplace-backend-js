@@ -1,8 +1,21 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+} from '@nestjs/common';
 import { BuildingService } from './building.service.js';
 import { CreateBuildingDto } from './dto/create-building.dto.js';
 import { UpdateBuildingDto } from './dto/update-building.dto.js';
+import { AuthGuard } from '../auth/auth.guard.js';
+import { RolesGuard } from '../auth/roles.guard.js';
+import { Roles } from '../decorators/roles.decorator.js';
 
+@UseGuards(AuthGuard)
 @Controller('building')
 export class BuildingController {
   constructor(private readonly buildingService: BuildingService) {}
@@ -13,6 +26,8 @@ export class BuildingController {
   }
 
   @Get()
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles('ADMIN')
   findAll() {
     return this.buildingService.findAll();
   }
@@ -23,7 +38,10 @@ export class BuildingController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateBuildingDto: UpdateBuildingDto) {
+  update(
+    @Param('id') id: string,
+    @Body() updateBuildingDto: UpdateBuildingDto,
+  ) {
     return this.buildingService.update(id, updateBuildingDto);
   }
 

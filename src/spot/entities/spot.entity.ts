@@ -2,9 +2,11 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import type { Schedule } from '../schedule/entities/schedule.entity.js';
 
 export enum SpotStatus {
   PENDING = 'PENDING',
@@ -29,14 +31,20 @@ export class Spot {
   @Column()
   description: string;
 
-  @Column()
-  long: string;
+  // @Column()
+  // long: string;
+  //
+  // @Column()
+  // lat: string;
+  //
+  // @Column({ type: 'enum', enum: SpotStatus, default: SpotStatus.PENDING })
+  // status: SpotStatus;
+  //
+  // @Column()
+  // fileId: string;
 
-  @Column()
-  lat: string;
-
-  @Column({ type: 'enum', enum: SpotStatus, default: SpotStatus.PENDING })
-  status: SpotStatus;
+  @OneToMany('Schedule', 'spot')
+  schedules: Schedule[];
 
   @CreateDateColumn()
   createdAt: Date;

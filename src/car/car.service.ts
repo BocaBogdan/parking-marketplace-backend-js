@@ -11,8 +11,8 @@ export class CarService {
     @InjectRepository(Car) private readonly carRepository: Repository<Car>,
   ) {}
 
-  create(createCarDto: CreateCarDto) {
-    const newCard = this.carRepository.create(createCarDto);
+  create(userId: string, createCarDto: CreateCarDto) {
+    const newCard = this.carRepository.create({ ...createCarDto, userId });
     return this.carRepository.save(newCard);
   }
 
@@ -22,6 +22,10 @@ export class CarService {
 
   findOne(id: string) {
     return this.carRepository.findBy({ id });
+  }
+
+  mine(userId: string) {
+    return this.carRepository.findBy({ userId });
   }
 
   async update(id: string, updateCarDto: UpdateCarDto) {

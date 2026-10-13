@@ -5,21 +5,28 @@ import { InviteUsersDto } from './dto/invite-users.dto';
 
 @Injectable()
 export class InviteService {
-  generateInvite(inviteUserDto: InviteUserDto) {
+  generateInvite(buildingId: string, inviteUserDto: InviteUserDto) {
     const { email, ...publicMetadata } = inviteUserDto;
 
     return clerkClient.invitations.createInvitation({
       emailAddress: email,
-      publicMetadata,
-
+      publicMetadata: {
+        ...publicMetadata,
+        buildingId,
+      },
+      redirectUrl: `${process.env.FRONTEND_URL ?? 'http://localhost:5173'}/register`,
     });
   }
 
-  generateInvites(inviteUserDto: InviteUsersDto) {
+  generateInvites(buildingId: string, inviteUserDto: InviteUsersDto) {
     return clerkClient.invitations.createInvitationBulk(
       inviteUserDto.invites.map(({ email, ...publicMetadata }) => ({
         emailAddress: email,
-        publicMetadata,
+        publicMetadata: {
+          ...publicMetadata,
+          buildingId,
+        },
+        redirectUrl: `${process.env.FRONTEND_URL ?? 'http://localhost:5173'}/register`,
       })),
     );
   }

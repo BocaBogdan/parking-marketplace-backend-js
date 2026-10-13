@@ -12,13 +12,20 @@ export class BookingService {
     private readonly bookingRepository: Repository<Booking>,
   ) {}
 
-  create(createBookingDto: CreateBookingDto) {
-    const newBooking = this.bookingRepository.create(createBookingDto);
+  create(userId: string, createBookingDto: CreateBookingDto) {
+    const newBooking = this.bookingRepository.create({
+      ...createBookingDto,
+      userId,
+    });
     return this.bookingRepository.save(newBooking);
   }
 
   findAll() {
     return this.bookingRepository.find();
+  }
+
+  mine(userId: string) {
+    return this.bookingRepository.findBy({ userId });
   }
 
   findOne(id: string) {

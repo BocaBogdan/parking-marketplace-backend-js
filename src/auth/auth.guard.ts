@@ -14,14 +14,12 @@ export class AuthGuard implements CanActivate {
   ): boolean | Promise<boolean> | Observable<boolean> {
     const request = context
       .switchToHttp()
-      .getRequest<Request & { userId: string }>();
+      .getRequest<Request & { userId: string; role: string }>();
 
     const auth = request.auth();
 
-    console.log(request)
-    console.log({auth})
-
-    if (!auth.isAuthenticated) throw new UnauthorizedException('Not authorized');
+    if (!auth.isAuthenticated)
+      throw new UnauthorizedException('Not authorized');
 
     const userId =
       'userId' in auth ? auth.userId : 'subject' in auth ? auth.subject : null;
@@ -29,6 +27,10 @@ export class AuthGuard implements CanActivate {
     if (!userId) throw new UnauthorizedException('Not authorized');
 
     request['userId'] = userId;
+    request['role'] =
+      'sessionClaims' in auth
+        ? (auth.sessionClaims?.publicMetadata as Record<string, string>)?.role
+        : 'USER';
 
     return true;
   }

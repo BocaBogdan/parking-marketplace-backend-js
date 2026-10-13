@@ -23,9 +23,4 @@ export class CreateSpotDto {
   @ValidateNested({ each: true })
   @Type(() => LocationDto)
   location: LocationDto;
-
-  @ApiProperty()
-  @IsNotEmpty()
-  @IsString()
-  fileId: string;
 }

@@ -11,7 +11,7 @@ export class Booking {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'uuid' })
+  @Column({ type: 'varchar' })
   userId: string;
 
   @Column({ type: 'uuid' })

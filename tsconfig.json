@@ -18,11 +18,7 @@
     "skipLibCheck": true,
     "strict": true,
     "strictPropertyInitialization": false,
-    "types": [
-      "vitest/globals",
-      "node",
-      "@clerk/express"
-    ],
+    "types": ["vitest/globals", "node", "@clerk/express", "multer"],
     "resolveJsonModule": true
   }
 }

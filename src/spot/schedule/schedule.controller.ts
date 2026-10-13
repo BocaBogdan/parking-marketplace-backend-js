@@ -5,16 +5,17 @@ import {
   Get,
   Param,
   ParseArrayPipe,
-  ParseIntPipe,
   Patch,
   Post,
-  Query,
+  UseGuards,
 } from '@nestjs/common';
 import { ScheduleService } from './schedule.service.js';
 import { CreateScheduleDto } from './dto/create-schedule.dto.js';
 import { UpdateScheduleDto } from './dto/update-schedule.dto.js';
 import { ApiBody, ApiParam } from '@nestjs/swagger';
+import { AuthGuard } from '../../auth/auth.guard.js';
 
+@UseGuards(AuthGuard)
 @Controller('spot/:spotId/schedule')
 @ApiParam({ name: 'spotId', type: 'string' })
 export class ScheduleController {
