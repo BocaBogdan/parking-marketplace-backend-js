@@ -5,11 +5,18 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Spot } from './entities/spot.entity.js';
 import { ScheduleModule } from './schedule/schedule.module.js';
 import { StorageModule } from '../storage/storage.module.js';
+import { Booking } from '../booking/entities/booking.entity.js';
+import { StatsModule } from '../stats/stats.module.js';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Spot]), ScheduleModule, StorageModule],
+  imports: [
+    TypeOrmModule.forFeature([Spot, Booking]),
+    ScheduleModule,
+    StorageModule,
+    StatsModule,
+  ],
   controllers: [SpotController],
   providers: [SpotService],
-  exports: [TypeOrmModule],
+  exports: [TypeOrmModule, SpotService],
 })
 export class SpotModule {}

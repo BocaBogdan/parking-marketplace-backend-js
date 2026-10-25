@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsIn, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { Role } from '../../../auth/role.js';
 
 export class InviteUserDto {
   @ApiProperty()
@@ -17,7 +18,9 @@ export class InviteUserDto {
   @IsString()
   apartment: string;
 
-  @IsString()
+  // Admins are set by hand in Clerk, never through an invitation
+  @ApiProperty({ enum: [Role.BUILDING_ADMIN], required: false })
+  @IsIn([Role.BUILDING_ADMIN])
   @IsOptional()
-  role: 'ADMIN'
+  role?: Role.BUILDING_ADMIN;
 }

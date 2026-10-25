@@ -1,23 +1,62 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+} from '@nestjs/common';
 import { CreateBookingDto } from './dto/create-booking.dto.js';
 import { UpdateBookingDto } from './dto/update-booking.dto.js';
-import { Repository } from 'typeorm';
+import { QueryFailedError, Repository } from 'typeorm';
 import { Booking } from './entities/booking.entity.js';
 import { InjectRepository } from '@nestjs/typeorm';
+import { SpotService } from '../spot/spot.service.js';
+
+/** Postgres error code for a violated exclusion constraint (`booking_no_overlap`) */
+const EXCLUSION_VIOLATION = '23P01';
+/** A booking may start in the slot already under way */
+const START_LEEWAY_MS = 30 * 60 * 1000;
 
 @Injectable()
 export class BookingService {
   constructor(
     @InjectRepository(Booking)
     private readonly bookingRepository: Repository<Booking>,
+    private readonly spotService: SpotService,
   ) {}
 
-  create(userId: string, createBookingDto: CreateBookingDto) {
-    const newBooking = this.bookingRepository.create({
-      ...createBookingDto,
-      userId,
-    });
-    return this.bookingRepository.save(newBooking);
+  async create(userId: string, createBookingDto: CreateBookingDto) {
+    const { spotId, carId, startsAt, endsAt } = createBookingDto;
+    if (endsAt <= startsAt) {
+      throw new BadRequestException('endsAt must be after startsAt');
+    }
+    if (startsAt.getTime() < Date.now() - START_LEEWAY_MS) {
+      throw new BadRequestException('startsAt must not be in the past');
+    }
+    if (!(await this.spotService.isAvailable(spotId, startsAt, endsAt))) {
+      throw new ConflictException('The spot is not available for this window');
+    }
+
+    try {
+      return await this.bookingRepository.save(
+        this.bookingRepository.create({
+          userId,
+          spotId,
+          carId,
+          startsAt,
+          endsAt,
+        }),
+      );
+    } catch (error) {
+      // Someone booked an overlapping window between the check and the insert
+      if (
+        error instanceof QueryFailedError &&
+        (error.driverError as { code?: string }).code === EXCLUSION_VIOLATION
+      ) {
+        throw new ConflictException(
+          'The spot is not available for this window',
+        );
+      }
+      throw error;
+    }
   }
 
   findAll() {
@@ -25,7 +64,10 @@ export class BookingService {
   }
 
   mine(userId: string) {
-    return this.bookingRepository.findBy({ userId });
+    return this.bookingRepository.find({
+      where: { userId },
+      order: { startsAt: 'ASC' },
+    });
   }
 
   findOne(id: string) {

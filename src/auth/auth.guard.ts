@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { Request } from 'express';
+import { Role } from './role.js';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -14,7 +15,9 @@ export class AuthGuard implements CanActivate {
   ): boolean | Promise<boolean> | Observable<boolean> {
     const request = context
       .switchToHttp()
-      .getRequest<Request & { userId: string; role: string }>();
+      .getRequest<
+        Request & { userId: string; role: Role; buildingId?: string }
+      >();
 
     const auth = request.auth();
 
@@ -27,10 +30,13 @@ export class AuthGuard implements CanActivate {
     if (!userId) throw new UnauthorizedException('Not authorized');
 
     request['userId'] = userId;
-    request['role'] =
+    const metadata =
       'sessionClaims' in auth
-        ? (auth.sessionClaims?.publicMetadata as Record<string, string>)?.role
-        : 'USER';
+        ? (auth.sessionClaims?.publicMetadata as
+            { role?: Role; buildingId?: string } | undefined)
+        : undefined;
+    request['role'] = metadata?.role ?? Role.USER;
+    request['buildingId'] = metadata?.buildingId;
 
     return true;
   }

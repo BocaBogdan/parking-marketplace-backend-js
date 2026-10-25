@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsNumber, IsString, IsUUID } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsDate, IsNotEmpty, IsUUID } from 'class-validator';
 
 export class CreateBookingDto {
   @ApiProperty()
@@ -12,18 +13,13 @@ export class CreateBookingDto {
   @IsUUID()
   carId: string;
 
-  @ApiProperty()
-  @IsNotEmpty()
-  @IsNumber()
-  dayOfWeek: number;
+  @ApiProperty({ type: String, format: 'date-time' })
+  @Type(() => Date)
+  @IsDate()
+  startsAt: Date;
 
-  @ApiProperty()
-  @IsNotEmpty()
-  @IsNumber()
-  startMinute: number;
-
-  @ApiProperty()
-  @IsNotEmpty()
-  @IsNumber()
-  endMinute: number;
+  @ApiProperty({ type: String, format: 'date-time' })
+  @Type(() => Date)
+  @IsDate()
+  endsAt: Date;
 }

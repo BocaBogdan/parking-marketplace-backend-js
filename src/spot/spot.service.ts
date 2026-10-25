@@ -1,5 +1,5 @@
-import { LessThanOrEqual, MoreThanOrEqual, Repository } from 'typeorm';
-import { Injectable } from '@nestjs/common';
+import { Repository } from 'typeorm';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Spot, SpotStatus } from './entities/spot.entity.js';
 import { CreateSpotDto } from './dto/create-spot.dto.js';
@@ -7,6 +7,8 @@ import { UpdateSpotDto } from './dto/update-spot.dto.js';
 import { Schedule } from './schedule/entities/schedule.entity.js';
 import { randomUUID } from 'node:crypto';
 import { StorageService } from '../storage/storage.service.js';
+import { Booking } from '../booking/entities/booking.entity.js';
+import { TIME_ZONE } from '../common/time-zone.js';
 
 @Injectable()
 export class SpotService {
@@ -14,6 +16,8 @@ export class SpotService {
     @InjectRepository(Spot) private readonly spotRepository: Repository<Spot>,
     @InjectRepository(Schedule)
     private readonly scheduleRepository: Repository<Schedule>,
+    @InjectRepository(Booking)
+    private readonly bookingRepository: Repository<Booking>,
     private readonly storage: StorageService,
   ) {}
 
@@ -21,9 +25,9 @@ export class SpotService {
     userId: string,
     buildingId: string,
     createSpotDto: CreateSpotDto,
-    // file: Express.Multer.File,
+    file: Express.Multer.File,
   ) {
-    // const fileId = await this.storage.upload(`${randomUUID()}.pdf`, file);
+    const fileId = await this.storage.upload(`${randomUUID()}.pdf`, file);
 
     try {
       return await this.spotRepository.save(
@@ -32,13 +36,13 @@ export class SpotService {
           buildingId,
           number: createSpotDto.number,
           description: createSpotDto.description,
-          // lat: createSpotDto.location.lat,
-          // long: createSpotDto.location.long,
-          // fileId,
+          lat: createSpotDto.location.lat,
+          long: createSpotDto.location.long,
+          fileId,
         }),
       );
     } catch (error) {
-      // await this.storage.delete(fileId); // don't leave a file nothing points to
+      await this.storage.delete(fileId); // don't leave a file nothing points to
       throw error;
     }
   }
@@ -55,35 +59,77 @@ export class SpotService {
     return this.spotRepository.findBy({ userId });
   }
 
-  booking(spotId: string) {
-    return this.scheduleRepository.findBy({ spotId });
+  /** The spot's bookings, soonest first, each with the car parked in it */
+  bookings(spotId: string) {
+    return this.bookingRepository.find({
+      where: { spotId },
+      relations: { car: true },
+      order: { startsAt: 'ASC' },
+    });
   }
 
-  findByInterval(dayOfWeek: number, startMinute: number, endMinute: number) {
+  findAvailable(startsAt: Date, endsAt: Date) {
+    if (endsAt <= startsAt) {
+      throw new BadRequestException('endsAt must be after startsAt');
+    }
+    return this.availableSpots(startsAt, endsAt)
+      .orderBy('spot.number')
+      .getMany();
+  }
+
+  isAvailable(spotId: string, startsAt: Date, endsAt: Date) {
+    return this.availableSpots(startsAt, endsAt)
+      .andWhere('spot.id = :spotId', { spotId })
+      .getExists();
+  }
+
+  /**
+   * Confirmed spots whose schedule covers the whole window and that nobody has booked for
+   * any part of it. The weekly schedule is turned into instants for each local day the
+   * window touches (so DST is applied per date), and adjacent pieces merge, which lets a
+   * window run past midnight into the next day's schedule.
+   */
+  private availableSpots(startsAt: Date, endsAt: Date) {
     return this.spotRepository
       .createQueryBuilder('spot')
-      .innerJoin('spot.schedules', 'schedule')
-      .where('schedule.dayOfWeek = :dayOfWeek', { dayOfWeek })
-      .andWhere('schedule.startMinute <= :startMinute', { startMinute })
-      .andWhere('schedule.endMinute >= :endMinute', { endMinute })
-      .andWhere((qb) => {
-        const sub = qb
-          .subQuery()
-          .select('booking.spotId')
-          .from('booking', 'booking')
-          .where('booking.dayOfWeek = :dayOfWeek')
-          .andWhere('booking.startMinute < :endMinute')
-          .andWhere('booking.endMinute > :startMinute')
-          .getQuery();
-        return 'spot.id NOT IN ' + sub;
-      })
-      .getMany();
+      .where('spot.status = :confirmed')
+      .andWhere(
+        `(
+          SELECT range_agg(tstzrange(
+            (d.day + schedule."startMinute" * interval '1 minute') AT TIME ZONE :timeZone,
+            (d.day + schedule."endMinute" * interval '1 minute') AT TIME ZONE :timeZone
+          ))
+          FROM schedule
+          CROSS JOIN generate_series(
+            date_trunc('day', CAST(:startsAt AS timestamptz) AT TIME ZONE :timeZone),
+            CAST(:endsAt AS timestamptz) AT TIME ZONE :timeZone,
+            interval '1 day'
+          ) AS d(day)
+          WHERE schedule."spotId" = spot.id
+            AND schedule."dayOfWeek" = extract(dow FROM d.day)
+            AND schedule."startMinute" < schedule."endMinute"
+        ) @> tstzrange(CAST(:startsAt AS timestamptz), CAST(:endsAt AS timestamptz))`,
+      )
+      .andWhere(
+        `NOT EXISTS (
+          SELECT 1 FROM booking
+          WHERE booking."spotId" = spot.id
+            AND tstzrange(booking."startsAt", booking."endsAt")
+              && tstzrange(CAST(:startsAt AS timestamptz), CAST(:endsAt AS timestamptz))
+        )`,
+      )
+      .setParameters({
+        confirmed: SpotStatus.CONFIRMED,
+        timeZone: TIME_ZONE,
+        startsAt,
+        endsAt,
+      });
   }
 
   async update(id: string, updateSpotDto: UpdateSpotDto) {
     await this.spotRepository.update(id, {
       ...updateSpotDto,
-      // status: SpotStatus.PENDING,
+      status: SpotStatus.PENDING,
     });
     return this.findOne(id);
   }

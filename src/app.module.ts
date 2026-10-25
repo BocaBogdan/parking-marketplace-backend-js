@@ -9,9 +9,20 @@ import { BuildingModule } from './building/building.module.js';
 import { BookingModule } from './booking/booking.module.js';
 import { CarModule } from './car/car.module.js';
 import { StorageModule } from './storage/storage.module.js';
+import { UserModule } from './user/user.module.js';
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true }), DatabaseModule, AdminModule, SpotModule, BuildingModule, BookingModule, CarModule, StorageModule],
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    DatabaseModule,
+    AdminModule,
+    SpotModule,
+    BuildingModule,
+    BookingModule,
+    CarModule,
+    StorageModule,
+    UserModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
