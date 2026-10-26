@@ -5,10 +5,11 @@ import {
 } from '@nestjs/common';
 import { CreateBookingDto } from './dto/create-booking.dto.js';
 import { UpdateBookingDto } from './dto/update-booking.dto.js';
-import { QueryFailedError, Repository } from 'typeorm';
+import { DataSource, QueryFailedError, Repository } from 'typeorm';
 import { Booking } from './entities/booking.entity.js';
 import { InjectRepository } from '@nestjs/typeorm';
 import { SpotService } from '../spot/spot.service.js';
+import { lockSpot } from '../spot/override/override.service.js';
 
 /** Postgres error code for a violated exclusion constraint (`booking_no_overlap`) */
 const EXCLUSION_VIOLATION = '23P01';
@@ -21,6 +22,7 @@ export class BookingService {
     @InjectRepository(Booking)
     private readonly bookingRepository: Repository<Booking>,
     private readonly spotService: SpotService,
+    private readonly dataSource: DataSource,
   ) {}
 
   async create(userId: string, createBookingDto: CreateBookingDto) {
@@ -31,20 +33,20 @@ export class BookingService {
     if (startsAt.getTime() < Date.now() - START_LEEWAY_MS) {
       throw new BadRequestException('startsAt must not be in the past');
     }
-    if (!(await this.spotService.isAvailable(spotId, startsAt, endsAt))) {
-      throw new ConflictException('The spot is not available for this window');
-    }
-
     try {
-      return await this.bookingRepository.save(
-        this.bookingRepository.create({
-          userId,
-          spotId,
-          carId,
-          startsAt,
-          endsAt,
-        }),
-      );
+      // Same lock as "Busy now", so the override and this booking can't miss each other
+      return await this.dataSource.transaction(async (manager) => {
+        await lockSpot(manager, spotId);
+        if (!(await this.spotService.isAvailable(spotId, startsAt, endsAt))) {
+          throw new ConflictException(
+            'The spot is not available for this window',
+          );
+        }
+        const repository = manager.getRepository(Booking);
+        return repository.save(
+          repository.create({ userId, spotId, carId, startsAt, endsAt }),
+        );
+      });
     } catch (error) {
       // Someone booked an overlapping window between the check and the insert
       if (

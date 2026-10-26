@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Spot } from '../spot/entities/spot.entity.js';
 import { TIME_ZONE } from '../common/time-zone.js';
+import { coverageSql } from '../spot/override/coverage.js';
 import type { StatsRange } from './dto/stats-query.dto.js';
 
 const TOP_LIMIT = 25;
@@ -321,8 +322,8 @@ export class StatsService {
 
   /**
    * Booked vs offered minutes per spot. Offered time is the spot's weekly schedule laid
-   * over every local day of the range. The schedule is today's, since past versions
-   * aren't kept, so older ranges are an estimate.
+   * over every local day of the range, plus "Free now" and minus "Busy" periods. The
+   * schedule is today's, since past versions aren't kept, so older ranges are an estimate.
    */
   private async utilization(
     scope: Scope,
@@ -333,24 +334,16 @@ export class StatsService {
     const rows = await this.query<UtilizationRow>(
       scope,
       `${usedCte(scope)},
-       days AS (
-         SELECT d FROM generate_series(
-           date_trunc('day', $2::timestamptz AT TIME ZONE $4),
-           $3::timestamptz AT TIME ZONE $4,
-           interval '1 day'
-         ) AS d
-       ),
        offered AS (
-         SELECT schedule."spotId",
-           sum(greatest(0, extract(epoch FROM
-             least((d + schedule."endMinute" * interval '1 minute') AT TIME ZONE $4, $3::timestamptz)
-             - greatest((d + schedule."startMinute" * interval '1 minute') AT TIME ZONE $4, $2::timestamptz)
-           ) / 60)) AS minutes
-         FROM schedule
-         JOIN spot ON spot.id = schedule."spotId"
-         JOIN days ON schedule."dayOfWeek" = extract(dow FROM days.d)
+         SELECT spot.id AS "spotId", (
+           SELECT sum(extract(epoch FROM upper(r) - lower(r)) / 60)
+           FROM unnest(
+             ${coverageSql('spot.id', '$2', '$3', '$4')}
+             * tstzmultirange(tstzrange($2::timestamptz, $3::timestamptz))
+           ) AS r
+         ) AS minutes
+         FROM spot
          WHERE ${scopeSql(scope)}
-         GROUP BY schedule."spotId"
        ),
        booked AS (
          SELECT "spotId", sum(minutes) AS minutes FROM used GROUP BY "spotId"

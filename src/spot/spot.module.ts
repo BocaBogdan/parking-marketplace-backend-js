@@ -7,11 +7,13 @@ import { ScheduleModule } from './schedule/schedule.module.js';
 import { StorageModule } from '../storage/storage.module.js';
 import { Booking } from '../booking/entities/booking.entity.js';
 import { StatsModule } from '../stats/stats.module.js';
+import { OverrideModule } from './override/override.module.js';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Spot, Booking]),
     ScheduleModule,
+    OverrideModule,
     StorageModule,
     StatsModule,
   ],

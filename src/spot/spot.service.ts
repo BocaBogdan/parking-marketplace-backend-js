@@ -9,6 +9,7 @@ import { randomUUID } from 'node:crypto';
 import { StorageService } from '../storage/storage.service.js';
 import { Booking } from '../booking/entities/booking.entity.js';
 import { TIME_ZONE } from '../common/time-zone.js';
+import { coverageSql } from './override/coverage.js';
 
 @Injectable()
 export class SpotService {
@@ -84,31 +85,17 @@ export class SpotService {
   }
 
   /**
-   * Confirmed spots whose schedule covers the whole window and that nobody has booked for
-   * any part of it. The weekly schedule is turned into instants for each local day the
-   * window touches (so DST is applied per date), and adjacent pieces merge, which lets a
-   * window run past midnight into the next day's schedule.
+   * Confirmed spots that can be booked for the whole window (see `coverageSql`: weekly
+   * schedule plus "Free now", minus "Busy") and that nobody has booked for any part of it.
+   * Adjacent pieces merge, so a window can run past midnight into the next day's schedule.
    */
   private availableSpots(startsAt: Date, endsAt: Date) {
     return this.spotRepository
       .createQueryBuilder('spot')
       .where('spot.status = :confirmed')
       .andWhere(
-        `(
-          SELECT range_agg(tstzrange(
-            (d.day + schedule."startMinute" * interval '1 minute') AT TIME ZONE :timeZone,
-            (d.day + schedule."endMinute" * interval '1 minute') AT TIME ZONE :timeZone
-          ))
-          FROM schedule
-          CROSS JOIN generate_series(
-            date_trunc('day', CAST(:startsAt AS timestamptz) AT TIME ZONE :timeZone),
-            CAST(:endsAt AS timestamptz) AT TIME ZONE :timeZone,
-            interval '1 day'
-          ) AS d(day)
-          WHERE schedule."spotId" = spot.id
-            AND schedule."dayOfWeek" = extract(dow FROM d.day)
-            AND schedule."startMinute" < schedule."endMinute"
-        ) @> tstzrange(CAST(:startsAt AS timestamptz), CAST(:endsAt AS timestamptz))`,
+        `${coverageSql('spot.id', ':startsAt', ':endsAt', ':timeZone')}
+          @> tstzrange(CAST(:startsAt AS timestamptz), CAST(:endsAt AS timestamptz))`,
       )
       .andWhere(
         `NOT EXISTS (
