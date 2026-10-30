@@ -1,0 +1,9 @@
+# Runs on the Synology NAS. Put this file and a .env next to it in /volume1/docker/parking-backend
+services:
+  api:
+    image: ghcr.io/bocabogdan/parking-marketplace-backend-js:${IMAGE_TAG:-latest}
+    container_name: parking-backend
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - '3000:3000'
