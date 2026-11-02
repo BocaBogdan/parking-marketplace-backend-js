@@ -1,0 +1,17 @@
+{
+  "$schema": "https://unpkg.com/wrangler@4/config-schema.json",
+  "name": "parking-api-keepalive",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  // No public URL needed: it only runs on the schedule below
+  "workers_dev": false,
+  "triggers": {
+    // Render's free instances spin down after 15 minutes without a request
+    "crons": ["*/10 * * * *"]
+  },
+  "vars": {
+    // Replace with your Render service URL
+    "HEALTH_URL": "https://YOUR-SERVICE.onrender.com/api/health"
+  },
+  "observability": { "enabled": true }
+}

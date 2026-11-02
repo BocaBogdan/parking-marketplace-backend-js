@@ -1,12 +1,10 @@
 import { Controller, Get } from '@nestjs/common';
-import { AppService } from './app.service.js';
 
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService) {}
-
-  @Get()
-  getHello(): string {
-    return this.appService.getHello();
+  /** Liveness only: it doesn't touch the database, so keep-alive pings don't wake Neon */
+  @Get('health')
+  health() {
+    return { status: 'ok' };
   }
 }
