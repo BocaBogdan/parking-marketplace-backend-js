@@ -39,6 +39,7 @@ export class SpotService {
           description: createSpotDto.description,
           lat: createSpotDto.location.lat,
           long: createSpotDto.location.long,
+          underground: createSpotDto.underground ?? false,
           fileId,
         }),
       );
@@ -69,17 +70,17 @@ export class SpotService {
     });
   }
 
-  findAvailable(startsAt: Date, endsAt: Date) {
+  findAvailable(userId: string, startsAt: Date, endsAt: Date) {
     if (endsAt <= startsAt) {
       throw new BadRequestException('endsAt must be after startsAt');
     }
-    return this.availableSpots(startsAt, endsAt)
+    return this.availableSpots(userId, startsAt, endsAt)
       .orderBy('spot.number')
       .getMany();
   }
 
-  isAvailable(spotId: string, startsAt: Date, endsAt: Date) {
-    return this.availableSpots(startsAt, endsAt)
+  isAvailable(userId: string, spotId: string, startsAt: Date, endsAt: Date) {
+    return this.availableSpots(userId, startsAt, endsAt)
       .andWhere('spot.id = :spotId', { spotId })
       .getExists();
   }
@@ -88,11 +89,20 @@ export class SpotService {
    * Confirmed spots that can be booked for the whole window (see `coverageSql`: weekly
    * schedule plus "Free now", minus "Busy") and that nobody has booked for any part of it.
    * Adjacent pieces merge, so a window can run past midnight into the next day's schedule.
+   * Underground spots are included only if the user owns a confirmed underground spot.
    */
-  private availableSpots(startsAt: Date, endsAt: Date) {
+  private availableSpots(userId: string, startsAt: Date, endsAt: Date) {
     return this.spotRepository
       .createQueryBuilder('spot')
       .where('spot.status = :confirmed')
+      .andWhere(
+        `(spot.underground = false OR EXISTS (
+          SELECT 1 FROM spot own
+          WHERE own."userId" = :userId
+            AND own.underground = true
+            AND own.status = :confirmed
+        ))`,
+      )
       .andWhere(
         `${coverageSql('spot.id', ':startsAt', ':endsAt', ':timeZone')}
           @> tstzrange(CAST(:startsAt AS timestamptz), CAST(:endsAt AS timestamptz))`,
@@ -108,6 +118,7 @@ export class SpotService {
       .setParameters({
         confirmed: SpotStatus.CONFIRMED,
         timeZone: TIME_ZONE,
+        userId,
         startsAt,
         endsAt,
       });

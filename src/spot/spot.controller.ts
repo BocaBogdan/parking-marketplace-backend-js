@@ -53,8 +53,11 @@ export class SpotController {
   }
 
   @Get('/available')
-  findAvailable(@Query() { startsAt, endsAt }: AvailabilityQueryDto) {
-    return this.spotService.findAvailable(startsAt, endsAt);
+  findAvailable(
+    @CurrentUserId() userId: string,
+    @Query() { startsAt, endsAt }: AvailabilityQueryDto,
+  ) {
+    return this.spotService.findAvailable(userId, startsAt, endsAt);
   }
 
   @Get('/mine')

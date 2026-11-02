@@ -45,6 +45,10 @@ export class Spot {
   @Column()
   lat: string;
 
+  /** Underground spots are only offered to owners of a confirmed underground spot */
+  @Column({ default: false })
+  underground: boolean;
+
   @Column({ type: 'enum', enum: SpotStatus, default: SpotStatus.PENDING })
   status: SpotStatus;
 

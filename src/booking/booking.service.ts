@@ -37,7 +37,14 @@ export class BookingService {
       // Same lock as "Busy now", so the override and this booking can't miss each other
       return await this.dataSource.transaction(async (manager) => {
         await lockSpot(manager, spotId);
-        if (!(await this.spotService.isAvailable(spotId, startsAt, endsAt))) {
+        if (
+          !(await this.spotService.isAvailable(
+            userId,
+            spotId,
+            startsAt,
+            endsAt,
+          ))
+        ) {
           throw new ConflictException(
             'The spot is not available for this window',
           );
