@@ -1,5 +1,9 @@
 import { Repository } from 'typeorm';
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Spot, SpotStatus } from './entities/spot.entity.js';
 import { CreateSpotDto } from './dto/create-spot.dto.js';
@@ -28,7 +32,11 @@ export class SpotService {
     createSpotDto: CreateSpotDto,
     file: Express.Multer.File,
   ) {
-    const fileId = await this.storage.upload(`${randomUUID()}.pdf`, file);
+    // The controller checked the bytes are a PDF, so store it as one whatever the client sent
+    const fileId = await this.storage.upload(`${randomUUID()}.pdf`, {
+      buffer: file.buffer,
+      mimetype: 'application/pdf',
+    });
 
     try {
       return await this.spotRepository.save(
@@ -53,16 +61,20 @@ export class SpotService {
     return this.spotRepository.find();
   }
 
-  findOne(id: string) {
-    return this.spotRepository.findOneBy({ id });
+  /** The user's own spot; anyone else's is reported as missing */
+  async findOne(userId: string, id: string) {
+    const spot = await this.spotRepository.findOneBy({ id, userId });
+    if (!spot) throw new NotFoundException('Spot not found');
+    return spot;
   }
 
   mine(userId: string) {
     return this.spotRepository.findBy({ userId });
   }
 
-  /** The spot's bookings, soonest first, each with the car parked in it */
-  bookings(spotId: string) {
+  /** The owner's view of their spot's bookings, soonest first, each with the car parked */
+  async bookings(userId: string, spotId: string) {
+    await this.findOne(userId, spotId);
     return this.bookingRepository.find({
       where: { spotId },
       relations: { car: true },
@@ -70,31 +82,52 @@ export class SpotService {
     });
   }
 
-  findAvailable(userId: string, startsAt: Date, endsAt: Date) {
+  /** Bookable spots of the user's own building; none for a user without one */
+  findAvailable(
+    userId: string,
+    buildingId: string | null,
+    startsAt: Date,
+    endsAt: Date,
+  ) {
     if (endsAt <= startsAt) {
       throw new BadRequestException('endsAt must be after startsAt');
     }
-    return this.availableSpots(userId, startsAt, endsAt)
+    if (!buildingId) return [];
+    return this.availableSpots(userId, buildingId, startsAt, endsAt)
       .orderBy('spot.number')
       .getMany();
   }
 
-  isAvailable(userId: string, spotId: string, startsAt: Date, endsAt: Date) {
-    return this.availableSpots(userId, startsAt, endsAt)
+  async isAvailable(
+    userId: string,
+    buildingId: string | null,
+    spotId: string,
+    startsAt: Date,
+    endsAt: Date,
+  ) {
+    if (!buildingId) return false;
+    return this.availableSpots(userId, buildingId, startsAt, endsAt)
       .andWhere('spot.id = :spotId', { spotId })
       .getExists();
   }
 
   /**
-   * Confirmed spots that can be booked for the whole window (see `coverageSql`: weekly
-   * schedule plus "Free now", minus "Busy") and that nobody has booked for any part of it.
-   * Adjacent pieces merge, so a window can run past midnight into the next day's schedule.
-   * Underground spots are included only if the user owns a confirmed underground spot.
+   * Confirmed spots of the building that can be booked for the whole window (see
+   * `coverageSql`: weekly schedule plus "Free now", minus "Busy") and that nobody has
+   * booked for any part of it. Adjacent pieces merge, so a window can run past midnight
+   * into the next day's schedule. Underground spots are included only if the user owns a
+   * confirmed underground spot.
    */
-  private availableSpots(userId: string, startsAt: Date, endsAt: Date) {
+  private availableSpots(
+    userId: string,
+    buildingId: string,
+    startsAt: Date,
+    endsAt: Date,
+  ) {
     return this.spotRepository
       .createQueryBuilder('spot')
       .where('spot.status = :confirmed')
+      .andWhere('spot."buildingId" = :buildingId')
       .andWhere(
         `(spot.underground = false OR EXISTS (
           SELECT 1 FROM spot own
@@ -119,22 +152,28 @@ export class SpotService {
         confirmed: SpotStatus.CONFIRMED,
         timeZone: TIME_ZONE,
         userId,
+        buildingId,
         startsAt,
         endsAt,
       });
   }
 
-  async update(id: string, updateSpotDto: UpdateSpotDto) {
-    await this.spotRepository.update(id, {
-      ...updateSpotDto,
-      status: SpotStatus.PENDING,
-      // Resubmitted for review, so the old rejection no longer applies
-      rejectionReason: null,
-    });
-    return this.findOne(id);
+  async update(userId: string, id: string, updateSpotDto: UpdateSpotDto) {
+    await this.findOne(userId, id);
+    await this.spotRepository.update(
+      { id, userId },
+      {
+        ...updateSpotDto,
+        status: SpotStatus.PENDING,
+        // Resubmitted for review, so the old rejection no longer applies
+        rejectionReason: null,
+      },
+    );
+    return this.findOne(userId, id);
   }
 
-  remove(id: string) {
-    return this.spotRepository.delete(id);
+  async remove(userId: string, id: string) {
+    await this.findOne(userId, id);
+    return this.spotRepository.delete({ id, userId });
   }
 }

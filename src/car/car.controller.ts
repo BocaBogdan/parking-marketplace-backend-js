@@ -39,17 +39,21 @@ export class CarController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.carService.findOne(id);
+  findOne(@CurrentUserId() userId: string, @Param('id') id: string) {
+    return this.carService.findOne(userId, id);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateCarDto: UpdateCarDto) {
-    return this.carService.update(id, updateCarDto);
+  update(
+    @CurrentUserId() userId: string,
+    @Param('id') id: string,
+    @Body() updateCarDto: UpdateCarDto,
+  ) {
+    return this.carService.update(userId, id, updateCarDto);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.carService.remove(id);
+  remove(@CurrentUserId() userId: string, @Param('id') id: string) {
+    return this.carService.remove(userId, id);
   }
 }

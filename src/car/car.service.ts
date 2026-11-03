@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateCarDto } from './dto/create-car.dto.js';
 import { UpdateCarDto } from './dto/update-car.dto.js';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -20,21 +20,26 @@ export class CarService {
     return this.carRepository.find();
   }
 
-  findOne(id: string) {
-    return this.carRepository.findBy({ id });
+  /** As a one-element array, which the frontend expects; 404 for anyone else's car */
+  async findOne(userId: string, id: string) {
+    const cars = await this.carRepository.findBy({ id, userId });
+    if (!cars.length) throw new NotFoundException('Car not found');
+    return cars;
   }
 
   mine(userId: string) {
     return this.carRepository.findBy({ userId });
   }
 
-  async update(id: string, updateCarDto: UpdateCarDto) {
-    await this.carRepository.update(id, updateCarDto);
+  async update(userId: string, id: string, updateCarDto: UpdateCarDto) {
+    await this.findOne(userId, id);
+    await this.carRepository.update({ id, userId }, updateCarDto);
 
-    return this.findOne(id);
+    return this.findOne(userId, id);
   }
 
-  remove(id: string) {
-    return this.carRepository.delete(id);
+  async remove(userId: string, id: string) {
+    await this.findOne(userId, id);
+    return this.carRepository.delete({ id, userId });
   }
 }

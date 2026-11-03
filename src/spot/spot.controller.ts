@@ -3,7 +3,9 @@ import {
   Controller,
   Delete,
   Get,
+  MaxFileSizeValidator,
   Param,
+  ParseFilePipe,
   Patch,
   Post,
   Query,
@@ -24,6 +26,10 @@ import { ApiConsumes } from '@nestjs/swagger';
 import { AvailabilityQueryDto } from './dto/availability-query.dto.js';
 import { StatsService } from '../stats/stats.service.js';
 import { StatsQueryDto } from '../stats/dto/stats-query.dto.js';
+import { PdfFileValidator } from './pdf-file.validator.js';
+
+/** Same limit as the frontend's document picker */
+const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
 
 @UseGuards(AuthGuard)
 @Controller('spot')
@@ -34,13 +40,26 @@ export class SpotController {
   ) {}
 
   @Post()
-  @UseInterceptors(FileInterceptor('file'))
+  // Multer stops reading past the limit, so an oversized upload never fills the memory
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: MAX_DOCUMENT_BYTES, files: 1 },
+    }),
+  )
   @ApiConsumes('multipart/form-data')
   create(
     @CurrentUserId() userId: string,
     @CurrentBuildingId() buildingId: string,
     @Body() createSpotDto: CreateSpotDto,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: MAX_DOCUMENT_BYTES }),
+          new PdfFileValidator(),
+        ],
+      }),
+    )
+    file: Express.Multer.File,
   ) {
     return this.spotService.create(userId, buildingId, createSpotDto, file);
   }
@@ -55,9 +74,10 @@ export class SpotController {
   @Get('/available')
   findAvailable(
     @CurrentUserId() userId: string,
+    @CurrentBuildingId() buildingId: string | null,
     @Query() { startsAt, endsAt }: AvailabilityQueryDto,
   ) {
-    return this.spotService.findAvailable(userId, startsAt, endsAt);
+    return this.spotService.findAvailable(userId, buildingId, startsAt, endsAt);
   }
 
   @Get('/mine')
@@ -65,14 +85,16 @@ export class SpotController {
     return this.spotService.mine(userId);
   }
 
+  /** The owner's own spot; 404 for anyone else */
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.spotService.findOne(id);
+  findOne(@CurrentUserId() userId: string, @Param('id') id: string) {
+    return this.spotService.findOne(userId, id);
   }
 
+  /** Bookings of the owner's spot, with car plates and phones; 404 for anyone else */
   @Get(':id/booking')
-  booking(@Param('id') id: string) {
-    return this.spotService.bookings(id);
+  booking(@CurrentUserId() userId: string, @Param('id') id: string) {
+    return this.spotService.bookings(userId, id);
   }
 
   /** The owner's statistics for one of their spots; 404 for anyone else */
@@ -86,12 +108,16 @@ export class SpotController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateSpotDto: UpdateSpotDto) {
-    return this.spotService.update(id, updateSpotDto);
+  update(
+    @CurrentUserId() userId: string,
+    @Param('id') id: string,
+    @Body() updateSpotDto: UpdateSpotDto,
+  ) {
+    return this.spotService.update(userId, id, updateSpotDto);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.spotService.remove(id);
+  remove(@CurrentUserId() userId: string, @Param('id') id: string) {
+    return this.spotService.remove(userId, id);
   }
 }

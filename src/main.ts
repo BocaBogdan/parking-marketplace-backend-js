@@ -16,14 +16,16 @@ async function bootstrap() {
           defaultSrc: ["'self'"],
           styleSrc: ["'self'", "'unsafe-inline'"],
           scriptSrc: ["'self'", "'unsafe-inline'"],
-          imgSrc: ["'self'", "data:"],
+          imgSrc: ["'self'", 'data:'],
         },
       },
       crossOriginEmbedderPolicy: false,
       hsts: false,
     }),
   );
-  app.enableCors({ origin: process.env.CORS_ORIGIN ?? 'http://localhost:5173' });
+  app.enableCors({
+    origin: process.env.CORS_ORIGIN ?? 'http://localhost:5173',
+  });
   app.setGlobalPrefix('api');
   app.useGlobalPipes(
     new ValidationPipe({
@@ -33,23 +35,22 @@ async function bootstrap() {
     }),
   );
 
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('Parking Marketplace')
-    .setVersion('0.1')
-    .addBearerAuth()
-    .build();
+  // API docs only outside production, so the live API doesn't publish its map of routes.
+  // The frontend's `npm run gen:api` reads /openapi.json from the local dev server
+  if (process.env.NODE_ENV !== 'production') {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('Parking Marketplace')
+      .setVersion('0.1')
+      .addBearerAuth()
+      .build();
 
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('docs', app, document);
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('docs', app, document);
 
-  // Serve OpenAPI JSON
-  app.getHttpAdapter().get('/openapi.json', (req, res) => {
-    res.json(document);
-  });
-
-  SwaggerModule.setup('docs', app, document,
-  );
-
+    app.getHttpAdapter().get('/openapi.json', (req, res) => {
+      res.json(document);
+    });
+  }
 
   app.enableShutdownHooks();
   await app.listen(process.env.PORT ?? 3000);
