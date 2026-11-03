@@ -46,7 +46,12 @@ export class AdminSpotService {
     });
   }
 
-  async updateStatus(buildingId: string, id: string, status: SpotStatus) {
+  async updateStatus(
+    buildingId: string,
+    id: string,
+    status: SpotStatus,
+    reason?: string,
+  ) {
     // The guard checked the building in the URL; the spot has to be in it too
     const spot = await this.spotRepository.findOneBy({ id, buildingId });
     if (!spot) throw new NotFoundException('Spot not found');
@@ -54,6 +59,10 @@ export class AdminSpotService {
     if (status === SpotStatus.CONFIRMED) {
       await this.storage.delete(spot.fileId);
     }
-    return this.spotRepository.update(id, { status });
+    return this.spotRepository.update(id, {
+      status,
+      // The DTO requires a reason for a rejection; approving clears an old one
+      rejectionReason: status === SpotStatus.REJECTED ? (reason ?? null) : null,
+    });
   }
 }

@@ -52,6 +52,10 @@ export class Spot {
   @Column({ type: 'enum', enum: SpotStatus, default: SpotStatus.PENDING })
   status: SpotStatus;
 
+  /** Why an admin rejected the spot; cleared when it's approved or the owner resubmits */
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  rejectionReason: string | null;
+
   @Column()
   fileId: string;
 

@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Patch, UseGuards } from '@nestjs/common';
 import { AdminSpotService } from './spot.service.js';
 import { AuthGuard } from '../../auth/auth.guard.js';
 import { BuildingAccessGuard } from '../../auth/building-access.guard.js';
-import { UpdateSpotDto } from '../../spot/dto/update-spot.dto.js';
+import { UpdateSpotStatusDto } from './dto/update-spot-status.dto.js';
 
 @UseGuards(AuthGuard, BuildingAccessGuard)
 @Controller('admin/:buildingId/spot')
@@ -13,9 +13,14 @@ export class AdminSpotController {
   updateStatus(
     @Param('buildingId') buildingId: string,
     @Param('id') id: string,
-    @Body() dto: UpdateSpotDto,
+    @Body() dto: UpdateSpotStatusDto,
   ) {
-    return this.adminSpotsService.updateStatus(buildingId, id, dto.status);
+    return this.adminSpotsService.updateStatus(
+      buildingId,
+      id,
+      dto.status,
+      dto.reason,
+    );
   }
 
   @Get()

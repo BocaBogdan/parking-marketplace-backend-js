@@ -128,6 +128,8 @@ export class SpotService {
     await this.spotRepository.update(id, {
       ...updateSpotDto,
       status: SpotStatus.PENDING,
+      // Resubmitted for review, so the old rejection no longer applies
+      rejectionReason: null,
     });
     return this.findOne(id);
   }
