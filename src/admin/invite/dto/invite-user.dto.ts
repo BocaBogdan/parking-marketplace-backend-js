@@ -11,11 +11,6 @@ export class InviteUserDto {
   @ApiProperty()
   @IsNotEmpty()
   @IsString()
-  eBlocUserID: string;
-
-  @ApiProperty()
-  @IsNotEmpty()
-  @IsString()
   apartment: string;
 
   // Admins are set by hand in Clerk, never through an invitation

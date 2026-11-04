@@ -19,7 +19,6 @@ interface LegacyMetadata {
   role?: Role;
   buildingId?: string;
   apartment?: string;
-  eBlocUserID?: string;
 }
 
 @Injectable()
@@ -87,7 +86,6 @@ export class UserService {
             ? MembershipRole.BUILDING_ADMIN
             : MembershipRole.RESIDENT,
         apartment: metadata.apartment ?? '',
-        eBlocUserID: metadata.eBlocUserID ?? '',
       });
     }
 
@@ -103,7 +101,6 @@ export class UserService {
           buildingId: invite.buildingId,
           role: invite.role,
           apartment: invite.apartment,
-          eBlocUserID: invite.eBlocUserID,
         });
         await this.inviteRepository.update(invite.id, {
           status: InviteStatus.ACCEPTED,
@@ -130,7 +127,7 @@ export class UserService {
   addMembership(
     membership: Pick<
       BuildingMembership,
-      'userId' | 'buildingId' | 'role' | 'apartment' | 'eBlocUserID'
+      'userId' | 'buildingId' | 'role' | 'apartment'
     >,
   ) {
     return this.membershipRepository
@@ -141,7 +138,6 @@ export class UserService {
         buildingId: membership.buildingId,
         role: membership.role,
         apartment: membership.apartment,
-        eBlocUserID: membership.eBlocUserID,
       })
       .orIgnore()
       .execute();

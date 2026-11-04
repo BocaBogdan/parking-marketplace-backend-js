@@ -44,9 +44,6 @@ export class BuildingInvite {
   @Column()
   apartment: string;
 
-  @Column()
-  eBlocUserID: string;
-
   /** Clerk user id of whoever sent it */
   @Column()
   invitedBy: string;

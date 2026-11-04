@@ -65,7 +65,7 @@ export class InviteService {
 
   private async invite(
     buildingId: string,
-    { email, role, apartment, eBlocUserID }: InviteUserDto,
+    { email, role, apartment }: InviteUserDto,
     invitedBy: string,
   ) {
     const normalized = email.trim().toLowerCase();
@@ -77,7 +77,6 @@ export class InviteService {
           ? MembershipRole.BUILDING_ADMIN
           : MembershipRole.RESIDENT,
       apartment,
-      eBlocUserID,
       invitedBy,
     };
 
@@ -115,7 +114,6 @@ export class InviteService {
       publicMetadata: {
         buildingId,
         apartment,
-        eBlocUserID,
         ...(role && { role }),
       },
       redirectUrl: `${process.env.FRONTEND_URL ?? 'http://localhost:5173'}/register`,

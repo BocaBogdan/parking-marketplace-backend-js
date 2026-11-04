@@ -46,9 +46,6 @@ export class BuildingMembership {
   @Column()
   apartment: string;
 
-  @Column()
-  eBlocUserID: string;
-
   @CreateDateColumn()
   createdAt: Date;
 }
