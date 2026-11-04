@@ -10,8 +10,7 @@
     "crons": ["*/10 * * * *"]
   },
   "vars": {
-    // Replace with your Render service URL
-    "HEALTH_URL": "https://YOUR-SERVICE.onrender.com/api/health"
+    "HEALTH_URL": "https://api.residentialparking.ro/api/health"
   },
   "observability": { "enabled": true }
 }
