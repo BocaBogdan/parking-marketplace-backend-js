@@ -41,7 +41,7 @@ export class UserService {
 
   /** The user with their buildings, for the frontend to decide what to show */
   async me(userId: string) {
-    const user = await this.ensureUser(userId);
+    const user = await this.refreshProfile(await this.ensureUser(userId));
     const memberships = await this.membershipRepository.find({
       where: { userId },
       relations: { building: true },
@@ -49,6 +49,29 @@ export class UserService {
     });
     user.memberships = memberships;
     return user;
+  }
+
+  /**
+   * Copies the name and email from Clerk, where users edit them. The app calls `me` on
+   * load, so others see the change from the user's next visit.
+   */
+  private async refreshProfile(user: AppUser) {
+    const clerkUser = await clerkClient.users.getUser(user.id);
+    const profile = {
+      email:
+        clerkUser.primaryEmailAddress?.emailAddress.toLowerCase() ?? user.email,
+      firstName: clerkUser.firstName,
+      lastName: clerkUser.lastName,
+    };
+    if (
+      profile.email === user.email &&
+      profile.firstName === user.firstName &&
+      profile.lastName === user.lastName
+    ) {
+      return user;
+    }
+    await this.userRepository.update(user.id, profile);
+    return Object.assign(user, profile);
   }
 
   /**
