@@ -106,7 +106,7 @@ describe('ownsSpotSql', () => {
   const sql = ownsSpotSql('spot', ':userId');
 
   it("matches the apartment in the apartment's building, not the spot's", () => {
-    expect(sql).toContain('member."buildingId" = spot."apartmentBuildingId"');
+    expect(sql).toContain('member."buildingId"::text = spot."apartmentBuildingId"');
     expect(sql).toContain('member.apartment = spot.apartment');
   });
 

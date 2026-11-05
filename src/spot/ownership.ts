@@ -8,10 +8,11 @@ import { Spot } from './entities/spot.entity.js';
  * SQL expressions: the spot's table alias and the user's id.
  */
 export function ownsSpotSql(spot: string, userId: string) {
+  // Memberships keep the building as a uuid, spots as varchar
   return `(${spot}."userId" = ${userId} OR EXISTS (
     SELECT 1 FROM building_membership member
     WHERE member."userId" = ${userId}
-      AND member."buildingId" = ${spot}."apartmentBuildingId"
+      AND member."buildingId"::text = ${spot}."apartmentBuildingId"
       AND member.apartment = ${spot}.apartment
       AND ${spot}.apartment <> ''
   ))`;
