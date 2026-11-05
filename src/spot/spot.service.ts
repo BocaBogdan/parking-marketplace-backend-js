@@ -208,6 +208,9 @@ export class SpotService implements OnModuleInit {
     if (spot.userId !== userId) {
       throw new ForbiddenException("Only the spot's creator can delete it");
     }
-    return this.spotRepository.delete({ id, userId });
+    const result = await this.spotRepository.delete({ id, userId });
+    // Approval already deleted a confirmed spot's PDF; deleting a missing key is harmless
+    await this.storage.delete(spot.fileId);
+    return result;
   }
 }

@@ -26,6 +26,7 @@ describe('SpotService', () => {
     }),
   };
   const membershipRepository = { findOneBy: vi.fn() };
+  const storage = { upload: () => Promise.resolve('file'), delete: vi.fn() };
   const file = { buffer: Buffer.from('%PDF') } as Express.Multer.File;
   const dto = {
     number: 7,
@@ -47,7 +48,7 @@ describe('SpotService', () => {
         },
         {
           provide: StorageService,
-          useValue: { upload: () => Promise.resolve('file') },
+          useValue: storage,
         },
       ],
     }).compile();
@@ -76,13 +77,14 @@ describe('SpotService', () => {
   });
 
   describe('remove', () => {
-    it('lets the creator delete the spot', async () => {
-      owned = { id: 'spot', userId: 'creator' };
+    it('lets the creator delete the spot and its PDF', async () => {
+      owned = { id: 'spot', userId: 'creator', fileId: 'doc.pdf' };
       await service.remove('creator', 'spot');
       expect(spotRepository.delete).toHaveBeenCalledWith({
         id: 'spot',
         userId: 'creator',
       });
+      expect(storage.delete).toHaveBeenCalledWith('doc.pdf');
     });
 
     it('forbids a co-owner', async () => {
@@ -91,6 +93,7 @@ describe('SpotService', () => {
         ForbiddenException,
       );
       expect(spotRepository.delete).not.toHaveBeenCalled();
+      expect(storage.delete).not.toHaveBeenCalled();
     });
 
     it("reports someone else's spot as missing", async () => {
@@ -106,7 +109,9 @@ describe('ownsSpotSql', () => {
   const sql = ownsSpotSql('spot', ':userId');
 
   it("matches the apartment in the apartment's building, not the spot's", () => {
-    expect(sql).toContain('member."buildingId"::text = spot."apartmentBuildingId"');
+    expect(sql).toContain(
+      'member."buildingId"::text = spot."apartmentBuildingId"',
+    );
     expect(sql).toContain('member.apartment = spot.apartment');
   });
 
