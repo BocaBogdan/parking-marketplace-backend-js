@@ -15,6 +15,8 @@ import {
 } from '../../membership/entities/building-invite.entity.js';
 import { MembershipRole } from '../../membership/entities/building-membership.entity.js';
 import { UserService } from '../../user/user.service.js';
+import { Building } from '../../building/entities/building.entity.js';
+import { MailService } from '../../mail/mail.service.js';
 
 /** Building admins invite residents; only an admin can make someone a building admin */
 function assertCanGrant(inviter: Role, invites: InviteUserDto[]) {
@@ -28,7 +30,10 @@ export class InviteService {
   constructor(
     @InjectRepository(BuildingInvite)
     private readonly inviteRepository: Repository<BuildingInvite>,
+    @InjectRepository(Building)
+    private readonly buildingRepository: Repository<Building>,
     private readonly userService: UserService,
+    private readonly mailService: MailService,
   ) {}
 
   findPending(buildingId: string) {
@@ -117,7 +122,26 @@ export class InviteService {
         ...(role && { role }),
       },
       redirectUrl: `${process.env.FRONTEND_URL ?? 'http://localhost:5173'}/register`,
+      // Clerk's free plan can't customize its email, so we send our own
+      notify: false,
     });
+    try {
+      if (!invitation.url) throw new Error('Clerk returned no invitation link');
+      const building = await this.buildingRepository.findOneBy({
+        id: buildingId,
+      });
+      await this.mailService.sendInvite({
+        to: normalized,
+        url: invitation.url,
+        idempotencyKey: `invite/${invitation.id}`,
+        buildingName: building?.name,
+        apartment,
+      });
+    } catch (error) {
+      // Nobody got the link, so don't leave a pending invite that blocks inviting again
+      await clerkClient.invitations.revokeInvitation(invitation.id);
+      throw error;
+    }
     return this.inviteRepository.save(
       this.inviteRepository.create({
         ...fields,

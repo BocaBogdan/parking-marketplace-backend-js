@@ -33,13 +33,14 @@ export class SpotService implements OnModuleInit {
 
   /** Spots created before co-ownership belong to their creator's apartment */
   async onModuleInit() {
+    // Memberships keep the building as a uuid, spots as varchar
     await this.spotRepository.query(
       `UPDATE spot
-       SET apartment = member.apartment, "apartmentBuildingId" = member."buildingId"
+       SET apartment = member.apartment, "apartmentBuildingId" = member."buildingId"::text
        FROM building_membership member
        WHERE spot.apartment IS NULL
          AND member."userId" = spot."userId"
-         AND member."buildingId" = spot."buildingId"
+         AND member."buildingId"::text = spot."buildingId"
          AND member.apartment <> ''`,
     );
   }
