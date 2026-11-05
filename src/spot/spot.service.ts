@@ -1,8 +1,9 @@
 import { Repository } from 'typeorm';
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
-  NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Spot, SpotStatus } from './entities/spot.entity.js';
@@ -14,17 +15,34 @@ import { StorageService } from '../storage/storage.service.js';
 import { Booking } from '../booking/entities/booking.entity.js';
 import { TIME_ZONE } from '../common/time-zone.js';
 import { coverageSql } from './override/coverage.js';
+import { BuildingMembership } from '../membership/entities/building-membership.entity.js';
+import { findOwnedSpot, ownsSpotSql } from './ownership.js';
 
 @Injectable()
-export class SpotService {
+export class SpotService implements OnModuleInit {
   constructor(
     @InjectRepository(Spot) private readonly spotRepository: Repository<Spot>,
     @InjectRepository(Schedule)
     private readonly scheduleRepository: Repository<Schedule>,
     @InjectRepository(Booking)
     private readonly bookingRepository: Repository<Booking>,
+    @InjectRepository(BuildingMembership)
+    private readonly membershipRepository: Repository<BuildingMembership>,
     private readonly storage: StorageService,
   ) {}
+
+  /** Spots created before co-ownership belong to their creator's apartment */
+  async onModuleInit() {
+    await this.spotRepository.query(
+      `UPDATE spot
+       SET apartment = member.apartment, "apartmentBuildingId" = member."buildingId"
+       FROM building_membership member
+       WHERE spot.apartment IS NULL
+         AND member."userId" = spot."userId"
+         AND member."buildingId" = spot."buildingId"
+         AND member.apartment <> ''`,
+    );
+  }
 
   async create(
     userId: string,
@@ -32,6 +50,13 @@ export class SpotService {
     createSpotDto: CreateSpotDto,
     file: Express.Multer.File,
   ) {
+    // Shared with everyone in the creator's apartment of this building
+    const membership = await this.membershipRepository.findOneBy({
+      userId,
+      buildingId,
+    });
+    const apartment = membership?.apartment || null;
+
     // The controller checked the bytes are a PDF, so store it as one whatever the client sent
     const fileId = await this.storage.upload(`${randomUUID()}.pdf`, {
       buffer: file.buffer,
@@ -43,6 +68,8 @@ export class SpotService {
         this.spotRepository.create({
           userId,
           buildingId,
+          apartmentBuildingId: apartment && buildingId,
+          apartment,
           number: createSpotDto.number,
           description: createSpotDto.description,
           lat: createSpotDto.location.lat,
@@ -61,15 +88,17 @@ export class SpotService {
     return this.spotRepository.find();
   }
 
-  /** The user's own spot; anyone else's is reported as missing */
-  async findOne(userId: string, id: string) {
-    const spot = await this.spotRepository.findOneBy({ id, userId });
-    if (!spot) throw new NotFoundException('Spot not found');
-    return spot;
+  /** A spot the user owns or co-owns; anyone else's is reported as missing */
+  findOne(userId: string, id: string) {
+    return findOwnedSpot(this.spotRepository, userId, id);
   }
 
+  /** Spots the user created, plus those of their apartments */
   mine(userId: string) {
-    return this.spotRepository.findBy({ userId });
+    return this.spotRepository
+      .createQueryBuilder('spot')
+      .where(ownsSpotSql('spot', ':userId'), { userId })
+      .getMany();
   }
 
   /** The owner's view of their spot's bookings, soonest first, each with the car parked */
@@ -131,7 +160,7 @@ export class SpotService {
       .andWhere(
         `(spot.underground = false OR EXISTS (
           SELECT 1 FROM spot own
-          WHERE own."userId" = :userId
+          WHERE ${ownsSpotSql('own', ':userId')}
             AND own.underground = true
             AND own.status = :confirmed
         ))`,
@@ -161,7 +190,7 @@ export class SpotService {
   async update(userId: string, id: string, updateSpotDto: UpdateSpotDto) {
     await this.findOne(userId, id);
     await this.spotRepository.update(
-      { id, userId },
+      { id },
       {
         ...updateSpotDto,
         status: SpotStatus.PENDING,
@@ -172,8 +201,12 @@ export class SpotService {
     return this.findOne(userId, id);
   }
 
+  /** Co-owners can manage the spot, but only its creator can delete it */
   async remove(userId: string, id: string) {
-    await this.findOne(userId, id);
+    const spot = await this.findOne(userId, id);
+    if (spot.userId !== userId) {
+      throw new ForbiddenException("Only the spot's creator can delete it");
+    }
     return this.spotRepository.delete({ id, userId });
   }
 }

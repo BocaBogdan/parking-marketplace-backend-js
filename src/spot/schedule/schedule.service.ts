@@ -1,14 +1,11 @@
 import { Repository } from 'typeorm';
-import {
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Schedule } from './entities/schedule.entity.js';
 import { Spot, SpotStatus } from '../entities/spot.entity.js';
 import { CreateScheduleDto } from './dto/create-schedule.dto.js';
 import { UpdateScheduleDto } from './dto/update-schedule.dto.js';
+import { findOwnedSpot } from '../ownership.js';
 
 @Injectable()
 export class ScheduleService {
@@ -55,11 +52,9 @@ export class ScheduleService {
     await this.scheduleRepository.delete({ id, spotId });
   }
 
-  /** The user's own spot; anyone else's is reported as missing */
-  private async ownedSpot(userId: string, spotId: string) {
-    const spot = await this.spotRepository.findOneBy({ id: spotId, userId });
-    if (!spot) throw new NotFoundException('Spot not found');
-    return spot;
+  /** A spot the user owns or co-owns; anyone else's is reported as missing */
+  private ownedSpot(userId: string, spotId: string) {
+    return findOwnedSpot(this.spotRepository, userId, spotId);
   }
 
   /** Weekly hours only make sense for a spot that can be booked */

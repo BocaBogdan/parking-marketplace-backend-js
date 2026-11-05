@@ -16,6 +16,7 @@ import { Spot } from '../entities/spot.entity.js';
 import { Booking } from '../../booking/entities/booking.entity.js';
 import { OverrideType, SpotOverride } from './entities/spot-override.entity.js';
 import { CreateOverrideDto } from './dto/create-override.dto.js';
+import { findOwnedSpot } from '../ownership.js';
 
 /** An override must last at least one booking slot */
 const MIN_LENGTH_MS = 30 * 60 * 1000;
@@ -107,12 +108,8 @@ export class OverrideService {
     });
   }
 
-  private async ownSpot(userId: string, spotId: string) {
-    const spot = await this.spotRepository.findOneBy({ id: spotId });
-    if (!spot || spot.userId !== userId) {
-      throw new NotFoundException('Spot not found');
-    }
-    return spot;
+  private ownSpot(userId: string, spotId: string) {
+    return findOwnedSpot(this.spotRepository, userId, spotId);
   }
 }
 

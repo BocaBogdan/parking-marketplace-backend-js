@@ -8,10 +8,11 @@ import { StorageModule } from '../storage/storage.module.js';
 import { Booking } from '../booking/entities/booking.entity.js';
 import { StatsModule } from '../stats/stats.module.js';
 import { OverrideModule } from './override/override.module.js';
+import { BuildingMembership } from '../membership/entities/building-membership.entity.js';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Spot, Booking]),
+    TypeOrmModule.forFeature([Spot, Booking, BuildingMembership]),
     ScheduleModule,
     OverrideModule,
     StorageModule,

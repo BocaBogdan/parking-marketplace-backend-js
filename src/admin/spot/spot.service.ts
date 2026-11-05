@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { StorageService } from '../../storage/storage.service.js';
 import { Booking } from '../../booking/entities/booking.entity.js';
+import { BuildingMembership } from '../../membership/entities/building-membership.entity.js';
 
 @Injectable()
 export class AdminSpotService {
@@ -11,6 +12,8 @@ export class AdminSpotService {
     @InjectRepository(Spot) private readonly spotRepository: Repository<Spot>,
     @InjectRepository(Booking)
     private readonly bookingRepository: Repository<Booking>,
+    @InjectRepository(BuildingMembership)
+    private readonly membershipRepository: Repository<BuildingMembership>,
     private readonly storage: StorageService,
   ) {}
 
@@ -23,7 +26,7 @@ export class AdminSpotService {
     });
   }
 
-  /** One spot of the building with its owner and weekly schedule */
+  /** One spot of the building with its creator, co-owners and weekly schedule */
   async findOne(buildingId: string, id: string) {
     // The guard checked the building in the URL; the spot has to be in it too
     const spot = await this.spotRepository.findOne({
@@ -31,7 +34,19 @@ export class AdminSpotService {
       relations: { owner: true, schedules: true },
     });
     if (!spot) throw new NotFoundException('Spot not found');
-    return spot;
+
+    // Everyone in the owning apartment, the creator included
+    const coOwners =
+      spot.apartment && spot.apartmentBuildingId
+        ? await this.membershipRepository.find({
+            where: {
+              buildingId: spot.apartmentBuildingId,
+              apartment: spot.apartment,
+            },
+            relations: { user: true },
+          })
+        : [];
+    return { ...spot, coOwners: coOwners.map(({ user }) => user) };
   }
 
   /** The spot's bookings, soonest first, with the driver and the car parked */

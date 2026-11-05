@@ -22,16 +22,25 @@ export class Spot {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  /** Whoever created the spot; only they can delete it */
   @Column()
   userId: string;
 
-  /** Null if the owner hasn't signed in since accounts moved to app_user */
+  /** The creator. Null if they haven't signed in since accounts moved to app_user */
   @ManyToOne('AppUser', { createForeignKeyConstraints: false })
   @JoinColumn({ name: 'userId' })
   owner: AppUser | null;
 
   @Column()
   buildingId: string;
+
+  /** Building of the owning apartment, which needn't be the one the spot is in */
+  @Column({ type: 'varchar', nullable: true })
+  apartmentBuildingId: string | null;
+
+  /** Everyone in this apartment of `apartmentBuildingId` co-owns the spot; null shares it with nobody */
+  @Column({ type: 'varchar', nullable: true })
+  apartment: string | null;
 
   @Column()
   number: number;

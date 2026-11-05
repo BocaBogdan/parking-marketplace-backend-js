@@ -1,9 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Spot } from '../spot/entities/spot.entity.js';
 import { TIME_ZONE } from '../common/time-zone.js';
 import { coverageSql } from '../spot/override/coverage.js';
+import { findOwnedSpot } from '../spot/ownership.js';
 import type { StatsRange } from './dto/stats-query.dto.js';
 
 const TOP_LIMIT = 25;
@@ -92,12 +93,9 @@ export class StatsService {
     };
   }
 
-  /** One spot's statistics, for its owner only. Drivers' names are left out. */
+  /** One spot's statistics, for its owners only. Drivers' names are left out. */
   async forOwner(userId: string, spotId: string, range: StatsRange) {
-    const spot = await this.spotRepository.findOneBy({ id: spotId });
-    if (!spot || spot.userId !== userId) {
-      throw new NotFoundException('Spot not found');
-    }
+    await findOwnedSpot(this.spotRepository, userId, spotId);
 
     const scope = { spotId };
     const window = await this.window(scope, range);
