@@ -9,10 +9,17 @@ import { BookingModule } from './booking/booking.module.js';
 import { CarModule } from './car/car.module.js';
 import { StorageModule } from './storage/storage.module.js';
 import { UserModule } from './user/user.module.js';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerModule } from '@nestjs/throttler';
+import {
+  RATE_LIMIT,
+  UserThrottlerGuard,
+} from './common/user-throttler.guard.js';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ThrottlerModule.forRoot([RATE_LIMIT]),
     DatabaseModule,
     AdminModule,
     SpotModule,
@@ -23,5 +30,6 @@ import { UserModule } from './user/user.module.js';
     UserModule,
   ],
   controllers: [AppController],
+  providers: [{ provide: APP_GUARD, useClass: UserThrottlerGuard }],
 })
 export class AppModule {}
