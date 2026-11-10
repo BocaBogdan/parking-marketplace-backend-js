@@ -71,7 +71,7 @@ export class AdminSpotService {
     const spot = await this.spotRepository.findOneBy({ id, buildingId });
     if (!spot) throw new NotFoundException('Spot not found');
 
-    if (status === SpotStatus.CONFIRMED) {
+    if (status === SpotStatus.CONFIRMED && spot.fileId) {
       await this.storage.delete(spot.fileId);
     }
     return this.spotRepository.update(id, {

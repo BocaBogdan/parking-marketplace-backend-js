@@ -9,6 +9,7 @@ import { BookingModule } from './booking/booking.module.js';
 import { CarModule } from './car/car.module.js';
 import { StorageModule } from './storage/storage.module.js';
 import { UserModule } from './user/user.module.js';
+import { FeatureFlagModule } from './feature-flag/feature-flag.module.js';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import {
@@ -28,6 +29,7 @@ import {
     CarModule,
     StorageModule,
     UserModule,
+    FeatureFlagModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: UserThrottlerGuard }],

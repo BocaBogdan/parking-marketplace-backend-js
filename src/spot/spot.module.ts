@@ -8,6 +8,7 @@ import { StorageModule } from '../storage/storage.module.js';
 import { Booking } from '../booking/entities/booking.entity.js';
 import { StatsModule } from '../stats/stats.module.js';
 import { OverrideModule } from './override/override.module.js';
+import { FeatureFlagModule } from '../feature-flag/feature-flag.module.js';
 import { BuildingMembership } from '../membership/entities/building-membership.entity.js';
 
 @Module({
@@ -17,6 +18,7 @@ import { BuildingMembership } from '../membership/entities/building-membership.e
     OverrideModule,
     StorageModule,
     StatsModule,
+    FeatureFlagModule,
   ],
   controllers: [SpotController],
   providers: [SpotService],

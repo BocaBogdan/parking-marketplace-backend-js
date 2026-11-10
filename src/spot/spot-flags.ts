@@ -1,0 +1,2 @@
+/** Spots register without a proof PDF and are confirmed at once; admins can still reject them */
+export const SPOT_DOCUMENT_NOT_REQUIRED = 'SPOT_DOCUMENT_NOT_REQUIRED';

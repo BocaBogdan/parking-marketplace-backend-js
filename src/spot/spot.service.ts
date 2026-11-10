@@ -17,6 +17,9 @@ import { TIME_ZONE } from '../common/time-zone.js';
 import { coverageSql } from './override/coverage.js';
 import { BuildingMembership } from '../membership/entities/building-membership.entity.js';
 import { findOwnedSpot, ownsSpotSql } from './ownership.js';
+import { FeatureFlagService } from '../feature-flag/feature-flag.service.js';
+import { SPOT_DOCUMENT_NOT_REQUIRED } from './spot-flags.js';
+import { PdfFileValidator } from './pdf-file.validator.js';
 
 @Injectable()
 export class SpotService implements OnModuleInit {
@@ -29,6 +32,7 @@ export class SpotService implements OnModuleInit {
     @InjectRepository(BuildingMembership)
     private readonly membershipRepository: Repository<BuildingMembership>,
     private readonly storage: StorageService,
+    private readonly featureFlags: FeatureFlagService,
   ) {}
 
   /** Spots created before co-ownership belong to their creator's apartment */
@@ -49,8 +53,21 @@ export class SpotService implements OnModuleInit {
     userId: string,
     buildingId: string,
     createSpotDto: CreateSpotDto,
-    file: Express.Multer.File,
+    file?: Express.Multer.File,
   ) {
+    // Such buildings skip the review: the spot is live at once and admins can still reject it
+    const documentNotRequired = await this.featureFlags.isEnabled(
+      buildingId,
+      SPOT_DOCUMENT_NOT_REQUIRED,
+    );
+    if (!documentNotRequired) {
+      if (!file) throw new BadRequestException('A PDF document is required');
+      const validator = new PdfFileValidator();
+      if (!validator.isValid(file)) {
+        throw new BadRequestException(validator.buildErrorMessage());
+      }
+    }
+
     // Shared with everyone in the creator's apartment of this building
     const membership = await this.membershipRepository.findOneBy({
       userId,
@@ -58,11 +75,15 @@ export class SpotService implements OnModuleInit {
     });
     const apartment = membership?.apartment || null;
 
-    // The controller checked the bytes are a PDF, so store it as one whatever the client sent
-    const fileId = await this.storage.upload(`${randomUUID()}.pdf`, {
-      buffer: file.buffer,
-      mimetype: 'application/pdf',
-    });
+    // Checked above that the bytes are a PDF, so store it as one whatever the client sent.
+    // A document sent where none is required is ignored.
+    const fileId =
+      documentNotRequired || !file
+        ? null
+        : await this.storage.upload(`${randomUUID()}.pdf`, {
+            buffer: file.buffer,
+            mimetype: 'application/pdf',
+          });
 
     try {
       return await this.spotRepository.save(
@@ -77,10 +98,13 @@ export class SpotService implements OnModuleInit {
           long: createSpotDto.location.long,
           underground: createSpotDto.underground ?? false,
           fileId,
+          status: documentNotRequired
+            ? SpotStatus.CONFIRMED
+            : SpotStatus.PENDING,
         }),
       );
     } catch (error) {
-      await this.storage.delete(fileId); // don't leave a file nothing points to
+      if (fileId) await this.storage.delete(fileId); // don't leave a file nothing points to
       throw error;
     }
   }
@@ -189,14 +213,23 @@ export class SpotService implements OnModuleInit {
   }
 
   async update(userId: string, id: string, updateSpotDto: UpdateSpotDto) {
-    await this.findOne(userId, id);
+    const spot = await this.findOne(userId, id);
+    // Without document review only a rejected spot goes back to an admin; edits keep the rest live
+    const resubmit =
+      spot.status === SpotStatus.REJECTED ||
+      !(await this.featureFlags.isEnabled(
+        spot.buildingId,
+        SPOT_DOCUMENT_NOT_REQUIRED,
+      ));
     await this.spotRepository.update(
       { id },
       {
         ...updateSpotDto,
-        status: SpotStatus.PENDING,
-        // Resubmitted for review, so the old rejection no longer applies
-        rejectionReason: null,
+        ...(resubmit && {
+          status: SpotStatus.PENDING,
+          // Resubmitted for review, so the old rejection no longer applies
+          rejectionReason: null,
+        }),
       },
     );
     return this.findOne(userId, id);
@@ -210,7 +243,7 @@ export class SpotService implements OnModuleInit {
     }
     const result = await this.spotRepository.delete({ id, userId });
     // Approval already deleted a confirmed spot's PDF; deleting a missing key is harmless
-    await this.storage.delete(spot.fileId);
+    if (spot.fileId) await this.storage.delete(spot.fileId);
     return result;
   }
 }

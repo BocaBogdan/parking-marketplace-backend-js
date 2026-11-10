@@ -65,8 +65,9 @@ export class Spot {
   @Column({ type: 'varchar', length: 500, nullable: true })
   rejectionReason: string | null;
 
-  @Column()
-  fileId: string;
+  /** The proof PDF; null when the building doesn't require one, or once approved */
+  @Column({ type: 'varchar', nullable: true })
+  fileId: string | null;
 
   @OneToMany('Schedule', 'spot')
   schedules: Schedule[];

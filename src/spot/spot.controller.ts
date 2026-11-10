@@ -3,9 +3,7 @@ import {
   Controller,
   Delete,
   Get,
-  MaxFileSizeValidator,
   Param,
-  ParseFilePipe,
   Patch,
   Post,
   Query,
@@ -26,7 +24,6 @@ import { ApiConsumes } from '@nestjs/swagger';
 import { AvailabilityQueryDto } from './dto/availability-query.dto.js';
 import { StatsService } from '../stats/stats.service.js';
 import { StatsQueryDto } from '../stats/dto/stats-query.dto.js';
-import { PdfFileValidator } from './pdf-file.validator.js';
 
 /** Same limit as the frontend's document picker */
 const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
@@ -51,15 +48,8 @@ export class SpotController {
     @CurrentUserId() userId: string,
     @CurrentBuildingId() buildingId: string,
     @Body() createSpotDto: CreateSpotDto,
-    @UploadedFile(
-      new ParseFilePipe({
-        validators: [
-          new MaxFileSizeValidator({ maxSize: MAX_DOCUMENT_BYTES }),
-          new PdfFileValidator(),
-        ],
-      }),
-    )
-    file: Express.Multer.File,
+    // Required and checked in the service, as it depends on the building's flags
+    @UploadedFile() file: Express.Multer.File | undefined,
   ) {
     return this.spotService.create(userId, buildingId, createSpotDto, file);
   }
