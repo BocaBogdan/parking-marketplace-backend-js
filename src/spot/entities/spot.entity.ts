@@ -65,7 +65,7 @@ export class Spot {
   @Column({ type: 'varchar', length: 500, nullable: true })
   rejectionReason: string | null;
 
-  /** The proof PDF; null when the building doesn't require one, or once approved */
+  /** Key of the proof document (PDF or photo); null when the building doesn't require one, or once approved */
   @Column({ type: 'varchar', nullable: true })
   fileId: string | null;
 

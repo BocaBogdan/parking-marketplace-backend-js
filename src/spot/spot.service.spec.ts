@@ -105,7 +105,26 @@ describe('SpotService', () => {
       expect(spotRepository.save).not.toHaveBeenCalled();
     });
 
-    it('rejects a file that is not a PDF', async () => {
+    it('stores a JPEG photo as one', async () => {
+      const photo = {
+        buffer: Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10]),
+      } as Express.Multer.File;
+      await service.create('user', 'building', dto, photo);
+      expect(storage.upload).toHaveBeenCalledWith(
+        expect.stringMatching(/\.jpg$/),
+        { buffer: photo.buffer, mimetype: 'image/jpeg' },
+      );
+    });
+
+    it('stores a PDF as one', async () => {
+      await service.create('user', 'building', dto, file);
+      expect(storage.upload).toHaveBeenCalledWith(
+        expect.stringMatching(/\.pdf$/),
+        { buffer: file.buffer, mimetype: 'application/pdf' },
+      );
+    });
+
+    it('rejects a file that is neither a PDF nor a photo', async () => {
       const notPdf = { buffer: Buffer.from('hello') } as Express.Multer.File;
       await expect(
         service.create('user', 'building', dto, notPdf),

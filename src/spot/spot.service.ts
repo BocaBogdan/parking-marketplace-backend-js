@@ -19,7 +19,7 @@ import { BuildingMembership } from '../membership/entities/building-membership.e
 import { findOwnedSpot, ownsSpotSql } from './ownership.js';
 import { FeatureFlagService } from '../feature-flag/feature-flag.service.js';
 import { SPOT_DOCUMENT_NOT_REQUIRED } from './spot-flags.js';
-import { PdfFileValidator } from './pdf-file.validator.js';
+import { detectDocumentType, DOCUMENT_TYPE_ERROR } from './document-file.js';
 
 @Injectable()
 export class SpotService implements OnModuleInit {
@@ -60,12 +60,13 @@ export class SpotService implements OnModuleInit {
       buildingId,
       SPOT_DOCUMENT_NOT_REQUIRED,
     );
+    // A document sent where none is required is ignored
+    const documentType = documentNotRequired
+      ? null
+      : detectDocumentType(file?.buffer);
     if (!documentNotRequired) {
-      if (!file) throw new BadRequestException('A PDF document is required');
-      const validator = new PdfFileValidator();
-      if (!validator.isValid(file)) {
-        throw new BadRequestException(validator.buildErrorMessage());
-      }
+      if (!file) throw new BadRequestException('A proof document is required');
+      if (!documentType) throw new BadRequestException(DOCUMENT_TYPE_ERROR);
     }
 
     // Shared with everyone in the creator's apartment of this building
@@ -75,15 +76,15 @@ export class SpotService implements OnModuleInit {
     });
     const apartment = membership?.apartment || null;
 
-    // Checked above that the bytes are a PDF, so store it as one whatever the client sent.
-    // A document sent where none is required is ignored.
+    // Stored as what its bytes are, whatever the client claimed. The key keeps the
+    // extension, which tells the admin app how to preview it.
     const fileId =
-      documentNotRequired || !file
-        ? null
-        : await this.storage.upload(`${randomUUID()}.pdf`, {
-            buffer: file.buffer,
-            mimetype: 'application/pdf',
-          });
+      documentType && file
+        ? await this.storage.upload(
+            `${randomUUID()}.${documentType.extension}`,
+            { buffer: file.buffer, mimetype: documentType.mimetype },
+          )
+        : null;
 
     try {
       return await this.spotRepository.save(
@@ -242,7 +243,7 @@ export class SpotService implements OnModuleInit {
       throw new ForbiddenException("Only the spot's creator can delete it");
     }
     const result = await this.spotRepository.delete({ id, userId });
-    // Approval already deleted a confirmed spot's PDF; deleting a missing key is harmless
+    // Approval already deleted a confirmed spot's document; deleting a missing key is harmless
     if (spot.fileId) await this.storage.delete(spot.fileId);
     return result;
   }
