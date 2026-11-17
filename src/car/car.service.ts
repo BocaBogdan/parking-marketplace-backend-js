@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnModuleInit,
+} from '@nestjs/common';
 import { CreateCarDto } from './dto/create-car.dto.js';
 import { UpdateCarDto } from './dto/update-car.dto.js';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -6,10 +11,27 @@ import { Car } from './entities/car.entity.js';
 import { Repository } from 'typeorm';
 
 @Injectable()
-export class CarService {
+export class CarService implements OnModuleInit {
+  private readonly logger = new Logger(CarService.name);
+
   constructor(
     @InjectRepository(Car) private readonly carRepository: Repository<Car>,
   ) {}
+
+  /**
+   * Plates saved before they were normalized (see `normalizePlate`) lose their spaces and
+   * dashes. Changes nothing once every plate is clean.
+   */
+  async onModuleInit() {
+    // For an UPDATE the postgres driver returns [rows, affected count]
+    const result: unknown = await this.carRepository.query(
+      `UPDATE car SET plate = upper(regexp_replace(plate, '[[:space:]-]', '', 'g'))
+       WHERE plate ~ '[[:space:]-]' OR plate <> upper(plate)`,
+    );
+    const changed =
+      Array.isArray(result) && typeof result[1] === 'number' ? result[1] : 0;
+    if (changed > 0) this.logger.log(`Normalized ${changed} plate(s)`);
+  }
 
   create(userId: string, createCarDto: CreateCarDto) {
     const newCard = this.carRepository.create({ ...createCarDto, userId });
