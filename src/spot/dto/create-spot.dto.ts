@@ -4,6 +4,7 @@ import {
   IsNotEmpty,
   IsNumber,
   IsOptional,
+  IsUUID,
   IsString,
   ValidateNested,
 } from 'class-validator';
@@ -11,6 +12,15 @@ import { LocationDto } from './location.dto.js';
 import { Transform, Type } from 'class-transformer';
 
 export class CreateSpotDto {
+  @ApiProperty({
+    required: false,
+    description:
+      "One of the user's buildings; defaults to the one they joined first",
+  })
+  @IsOptional()
+  @IsUUID()
+  buildingId?: string;
+
   @ApiProperty()
   @IsNotEmpty()
   @IsNumber()

@@ -1,8 +1,9 @@
-import { ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { MembershipRole } from '../membership/entities/building-membership.entity.js';
 import {
   canManageBuilding,
-  resolveCurrentBuilding,
+  memberBuildingIds,
+  requireMemberBuilding,
   type Access,
   type AccessMembership,
 } from './access.js';
@@ -43,25 +44,31 @@ describe('canManageBuilding', () => {
   });
 });
 
-describe('resolveCurrentBuilding', () => {
+describe('requireMemberBuilding', () => {
   const two = access([
     member('a', MembershipRole.RESIDENT, 1),
     member('b', MembershipRole.RESIDENT, 2),
   ]);
 
-  it('uses the building the switcher picked', () => {
-    expect(resolveCurrentBuilding(two, 'b')).toBe('b');
+  it('lists every building the user is in', () => {
+    expect(memberBuildingIds(two)).toEqual(['a', 'b']);
+  });
+
+  it('uses the building asked for', () => {
+    expect(requireMemberBuilding(two, 'b')).toBe('b');
   });
 
   it('refuses a building the user is not in', () => {
-    expect(() => resolveCurrentBuilding(two, 'c')).toThrow(ForbiddenException);
+    expect(() => requireMemberBuilding(two, 'c')).toThrow(ForbiddenException);
   });
 
   it('defaults to the oldest membership', () => {
-    expect(resolveCurrentBuilding(two, undefined)).toBe('a');
+    expect(requireMemberBuilding(two, undefined)).toBe('a');
   });
 
-  it('is null without memberships', () => {
-    expect(resolveCurrentBuilding(access([]), undefined)).toBeNull();
+  it('refuses a user without a building', () => {
+    expect(() => requireMemberBuilding(access([]), undefined)).toThrow(
+      BadRequestException,
+    );
   });
 });

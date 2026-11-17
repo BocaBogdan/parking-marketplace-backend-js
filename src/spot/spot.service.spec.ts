@@ -224,6 +224,60 @@ describe('SpotService', () => {
   });
 });
 
+describe('SpotService availability', () => {
+  const clauses: string[] = [];
+  let parameters: Record<string, unknown> = {};
+  const builder = {
+    where: (sql: string) => (clauses.push(sql), builder),
+    andWhere: (sql: string) => (clauses.push(sql), builder),
+    setParameters: (params: Record<string, unknown>) => {
+      parameters = params;
+      return builder;
+    },
+    orderBy: () => builder,
+    getMany: () => Promise.resolve([]),
+    getExists: () => Promise.resolve(true),
+  };
+  const spotRepository = { createQueryBuilder: vi.fn(() => builder) };
+  const service = new SpotService(
+    spotRepository as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+  );
+  const startsAt = new Date('2026-11-20T08:00:00Z');
+  const endsAt = new Date('2026-11-20T10:00:00Z');
+
+  beforeEach(() => {
+    clauses.length = 0;
+    parameters = {};
+    spotRepository.createQueryBuilder.mockClear();
+  });
+
+  it('searches every building the user lives in', async () => {
+    await service.findAvailable('u1', ['a', 'b'], startsAt, endsAt);
+    expect(clauses).toContain('spot."buildingId" IN (:...buildingIds)');
+    expect(parameters.buildingIds).toEqual(['a', 'b']);
+  });
+
+  it('opens underground spots only to garage owners of the same building', async () => {
+    await service.findAvailable('u1', ['a'], startsAt, endsAt);
+    expect(clauses.join('\n')).toContain(
+      'own."buildingId" = spot."buildingId"',
+    );
+  });
+
+  it('finds nothing for a user without a building', async () => {
+    expect(await service.findAvailable('u1', [], startsAt, endsAt)).toEqual([]);
+    expect(await service.isAvailable('u1', [], 'spot', startsAt, endsAt)).toBe(
+      false,
+    );
+    expect(spotRepository.createQueryBuilder).not.toHaveBeenCalled();
+  });
+});
+
 describe('ownsSpotSql', () => {
   const sql = ownsSpotSql('spot', ':userId');
 

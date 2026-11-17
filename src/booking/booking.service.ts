@@ -28,7 +28,7 @@ export class BookingService {
 
   async create(
     userId: string,
-    buildingId: string | null,
+    buildingIds: string[],
     createBookingDto: CreateBookingDto,
   ) {
     const { spotId, carId, startsAt, endsAt } = createBookingDto;
@@ -50,11 +50,11 @@ export class BookingService {
       // Same lock as "Busy now", so the override and this booking can't miss each other
       return await this.dataSource.transaction(async (manager) => {
         await lockSpot(manager, spotId);
-        // Also refuses spots of other buildings
+        // Also refuses spots of buildings the user doesn't live in
         if (
           !(await this.spotService.isAvailable(
             userId,
-            buildingId,
+            buildingIds,
             spotId,
             startsAt,
             endsAt,

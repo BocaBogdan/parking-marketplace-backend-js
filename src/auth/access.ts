@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import type { Request } from 'express';
 import { MembershipRole } from '../membership/entities/building-membership.entity.js';
 
@@ -21,9 +21,6 @@ export interface Access {
 /** A request that went through AuthGuard */
 export type AuthedRequest = Request & { userId: string; access: Access };
 
-/** The header the frontend's building switcher sends */
-export const BUILDING_HEADER = 'x-building-id';
-
 /** Whether the user may manage this building: admins anywhere, building admins in theirs */
 export const canManageBuilding = (access: Access, buildingId: string) =>
   access.isAdmin ||
@@ -33,19 +30,25 @@ export const canManageBuilding = (access: Access, buildingId: string) =>
       membership.role === MembershipRole.BUILDING_ADMIN,
   );
 
+/** Every building the user belongs to */
+export const memberBuildingIds = (access: Access) =>
+  access.memberships.map((membership) => membership.buildingId);
+
 /**
- * The building the user is acting in (registering spots, searching, booking): the one the
- * switcher picked, else their oldest; null if they belong to none.
+ * The building an action happens in (registering a spot, reading its flags): the one
+ * asked for if the user belongs to it, else their oldest.
  */
-export function resolveCurrentBuilding(
+export function requireMemberBuilding(
   access: Access,
-  requested: string | undefined,
+  buildingId: string | undefined,
 ) {
-  if (requested) {
-    if (!access.memberships.some((m) => m.buildingId === requested)) {
+  if (buildingId) {
+    if (!memberBuildingIds(access).includes(buildingId)) {
       throw new ForbiddenException('You are not a member of this building');
     }
-    return requested;
+    return buildingId;
   }
-  return access.memberships[0]?.buildingId ?? null;
+  const oldest = access.memberships[0]?.buildingId;
+  if (!oldest) throw new BadRequestException('You are not in any building');
+  return oldest;
 }

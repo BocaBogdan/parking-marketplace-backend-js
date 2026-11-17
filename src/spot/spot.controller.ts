@@ -15,7 +15,12 @@ import { SpotService } from './spot.service.js';
 import { CreateSpotDto } from './dto/create-spot.dto.js';
 import { UpdateSpotDto } from './dto/update-spot.dto.js';
 import { CurrentUserId } from '../decorators/current-user-id.decorator.js';
-import { CurrentBuildingId } from '../decorators/current-building-id.decorator.js';
+import { CurrentAccess } from '../decorators/current-access.decorator.js';
+import {
+  memberBuildingIds,
+  requireMemberBuilding,
+  type Access,
+} from '../auth/access.js';
 import { AuthGuard } from '../auth/auth.guard.js';
 import { RolesGuard } from '../auth/roles.guard.js';
 import { Roles } from '../decorators/roles.decorator.js';
@@ -46,12 +51,17 @@ export class SpotController {
   @ApiConsumes('multipart/form-data')
   create(
     @CurrentUserId() userId: string,
-    @CurrentBuildingId() buildingId: string,
+    @CurrentAccess() access: Access,
     @Body() createSpotDto: CreateSpotDto,
     // Required and checked in the service, as it depends on the building's flags
     @UploadedFile() file: Express.Multer.File | undefined,
   ) {
-    return this.spotService.create(userId, buildingId, createSpotDto, file);
+    return this.spotService.create(
+      userId,
+      requireMemberBuilding(access, createSpotDto.buildingId),
+      createSpotDto,
+      file,
+    );
   }
 
   @Get()
@@ -64,10 +74,16 @@ export class SpotController {
   @Get('/available')
   findAvailable(
     @CurrentUserId() userId: string,
-    @CurrentBuildingId() buildingId: string | null,
+    @CurrentAccess() access: Access,
     @Query() { startsAt, endsAt }: AvailabilityQueryDto,
   ) {
-    return this.spotService.findAvailable(userId, buildingId, startsAt, endsAt);
+    // Every building the user lives in; each spot says which it's in
+    return this.spotService.findAvailable(
+      userId,
+      memberBuildingIds(access),
+      startsAt,
+      endsAt,
+    );
   }
 
   @Get('/mine')

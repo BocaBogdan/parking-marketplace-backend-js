@@ -137,56 +137,57 @@ export class SpotService implements OnModuleInit {
     });
   }
 
-  /** Bookable spots of the user's own building; none for a user without one */
+  /** Bookable spots of the buildings the user lives in; none for a user without one */
   findAvailable(
     userId: string,
-    buildingId: string | null,
+    buildingIds: string[],
     startsAt: Date,
     endsAt: Date,
   ) {
     if (endsAt <= startsAt) {
       throw new BadRequestException('endsAt must be after startsAt');
     }
-    if (!buildingId) return [];
-    return this.availableSpots(userId, buildingId, startsAt, endsAt)
+    if (buildingIds.length === 0) return [];
+    return this.availableSpots(userId, buildingIds, startsAt, endsAt)
       .orderBy('spot.number')
       .getMany();
   }
 
   async isAvailable(
     userId: string,
-    buildingId: string | null,
+    buildingIds: string[],
     spotId: string,
     startsAt: Date,
     endsAt: Date,
   ) {
-    if (!buildingId) return false;
-    return this.availableSpots(userId, buildingId, startsAt, endsAt)
+    if (buildingIds.length === 0) return false;
+    return this.availableSpots(userId, buildingIds, startsAt, endsAt)
       .andWhere('spot.id = :spotId', { spotId })
       .getExists();
   }
 
   /**
-   * Confirmed spots of the building that can be booked for the whole window (see
+   * Confirmed spots of the buildings that can be booked for the whole window (see
    * `coverageSql`: weekly schedule plus "Free now", minus "Busy") and that nobody has
    * booked for any part of it. Adjacent pieces merge, so a window can run past midnight
    * into the next day's schedule. Underground spots are included only if the user owns a
-   * confirmed underground spot.
+   * confirmed underground spot in the same building: garage access is per building.
    */
   private availableSpots(
     userId: string,
-    buildingId: string,
+    buildingIds: string[],
     startsAt: Date,
     endsAt: Date,
   ) {
     return this.spotRepository
       .createQueryBuilder('spot')
       .where('spot.status = :confirmed')
-      .andWhere('spot."buildingId" = :buildingId')
+      .andWhere('spot."buildingId" IN (:...buildingIds)')
       .andWhere(
         `(spot.underground = false OR EXISTS (
           SELECT 1 FROM spot own
           WHERE ${ownsSpotSql('own', ':userId')}
+            AND own."buildingId" = spot."buildingId"
             AND own.underground = true
             AND own.status = :confirmed
         ))`,
@@ -207,7 +208,7 @@ export class SpotService implements OnModuleInit {
         confirmed: SpotStatus.CONFIRMED,
         timeZone: TIME_ZONE,
         userId,
-        buildingId,
+        buildingIds,
         startsAt,
         endsAt,
       });

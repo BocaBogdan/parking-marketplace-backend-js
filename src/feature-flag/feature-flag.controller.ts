@@ -7,6 +7,7 @@ import {
   ParseUUIDPipe,
   Post,
   Put,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '../auth/auth.guard.js';
@@ -17,7 +18,9 @@ import { Role } from '../auth/role.js';
 import { FeatureFlagService } from './feature-flag.service.js';
 import { CreateFeatureFlagDto } from './dto/create-feature-flag.dto.js';
 import { SetFeatureFlagDto } from './dto/set-feature-flag.dto.js';
-import { CurrentBuildingId } from '../decorators/current-building-id.decorator.js';
+import { CurrentAccess } from '../decorators/current-access.decorator.js';
+import { requireMemberBuilding, type Access } from '../auth/access.js';
+import { CurrentFlagsQueryDto } from './dto/current-flags-query.dto.js';
 
 @UseGuards(AuthGuard)
 @Controller()
@@ -31,10 +34,19 @@ export class FeatureFlagController {
     return this.featureFlags.findAll();
   }
 
-  /** Keys of the flags on in the signed-in user's building, for the app to adapt */
+  /**
+   * Keys of the flags on in one of the user's buildings (their first by default), for
+   * the app to adapt; none for a user without a building
+   */
   @Get('feature-flags/current')
-  current(@CurrentBuildingId() buildingId: string | null) {
-    return this.featureFlags.enabledFor(buildingId);
+  current(
+    @CurrentAccess() access: Access,
+    @Query() { buildingId }: CurrentFlagsQueryDto,
+  ) {
+    if (access.memberships.length === 0) return [];
+    return this.featureFlags.enabledFor(
+      requireMemberBuilding(access, buildingId),
+    );
   }
 
   @Post('feature-flags')

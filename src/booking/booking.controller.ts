@@ -10,7 +10,8 @@ import {
 import { BookingService } from './booking.service.js';
 import { CreateBookingDto } from './dto/create-booking.dto.js';
 import { CurrentUserId } from '../decorators/current-user-id.decorator.js';
-import { CurrentBuildingId } from '../decorators/current-building-id.decorator.js';
+import { CurrentAccess } from '../decorators/current-access.decorator.js';
+import { memberBuildingIds, type Access } from '../auth/access.js';
 import { Roles } from '../decorators/roles.decorator.js';
 import { AuthGuard } from '../auth/auth.guard.js';
 import { RolesGuard } from '../auth/roles.guard.js';
@@ -23,10 +24,14 @@ export class BookingController {
   @Post()
   create(
     @CurrentUserId() userId: string,
-    @CurrentBuildingId() buildingId: string | null,
+    @CurrentAccess() access: Access,
     @Body() createBookingDto: CreateBookingDto,
   ) {
-    return this.bookingService.create(userId, buildingId, createBookingDto);
+    return this.bookingService.create(
+      userId,
+      memberBuildingIds(access),
+      createBookingDto,
+    );
   }
 
   @Get()
