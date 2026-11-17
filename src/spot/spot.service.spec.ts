@@ -12,6 +12,7 @@ import { BuildingMembership } from '../membership/entities/building-membership.e
 import { StorageService } from '../storage/storage.service.js';
 import { ownsSpotSql } from './ownership.js';
 import { FeatureFlagService } from '../feature-flag/feature-flag.service.js';
+import type { UpdateSpotDto } from './dto/update-spot.dto.js';
 import { Spot, SpotStatus } from './entities/spot.entity.js';
 
 describe('SpotService', () => {
@@ -158,7 +159,8 @@ describe('SpotService', () => {
   });
 
   describe('update', () => {
-    const edit = { description: 'By the door' };
+    // The DTO's optional fields are typed as required
+    const edit = { description: 'By the door' } as UpdateSpotDto;
 
     it('sends every edit back for review without the flag', async () => {
       owned = { id: 'spot', buildingId: 'b', status: SpotStatus.CONFIRMED };

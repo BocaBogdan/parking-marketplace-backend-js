@@ -6,6 +6,7 @@ import { AdminSpotModule } from './spot/spot.module.js';
 import { DocumentModule } from './document/document.module.js';
 import { MemberModule } from './member/member.module.js';
 import { AdminStatsModule } from './stats/stats.module.js';
+import { AdminCarModule } from './car/car.module.js';
 
 @Module({
   controllers: [AdminController],
@@ -16,6 +17,7 @@ import { AdminStatsModule } from './stats/stats.module.js';
     DocumentModule,
     MemberModule,
     AdminStatsModule,
+    AdminCarModule,
   ],
 })
 export class AdminModule {}
