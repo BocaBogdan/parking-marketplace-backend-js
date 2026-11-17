@@ -4,40 +4,41 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Observable } from 'rxjs';
-import { Request } from 'express';
-import { Role } from './role.js';
+import type { Request } from 'express';
+import { AccessService, type LegacyMetadata } from './access.service.js';
+import type { AuthedRequest } from './access.js';
 
+/**
+ * Clerk signs the user in; what they may do comes from the database (admin flag and
+ * building memberships), loaded once onto `request.access`.
+ */
 @Injectable()
 export class AuthGuard implements CanActivate {
-  canActivate(
-    context: ExecutionContext,
-  ): boolean | Promise<boolean> | Observable<boolean> {
+  constructor(private readonly accessService: AccessService) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context
       .switchToHttp()
-      .getRequest<
-        Request & { userId: string; role: Role; buildingId?: string }
-      >();
+      .getRequest<Request & Partial<AuthedRequest>>();
 
     const auth = request.auth();
-
-    if (!auth.isAuthenticated)
+    if (!auth.isAuthenticated) {
       throw new UnauthorizedException('Not authorized');
+    }
 
     const userId =
       'userId' in auth ? auth.userId : 'subject' in auth ? auth.subject : null;
-
     if (!userId) throw new UnauthorizedException('Not authorized');
 
-    request['userId'] = userId;
-    const metadata =
-      'sessionClaims' in auth
-        ? (auth.sessionClaims?.publicMetadata as
-            { role?: Role; buildingId?: string } | undefined)
-        : undefined;
-    request['role'] = metadata?.role ?? Role.USER;
-    request['buildingId'] = metadata?.buildingId;
-
+    request.userId = userId;
+    // Controllers stack AuthGuard more than once; load access a single time
+    if (!request.access) {
+      const legacy =
+        'sessionClaims' in auth
+          ? (auth.sessionClaims?.publicMetadata as LegacyMetadata | undefined)
+          : undefined;
+      request.access = await this.accessService.load(userId, legacy);
+    }
     return true;
   }
 }

@@ -4,8 +4,8 @@ import { InviteUserDto } from './dto/invite-user.dto.js';
 import { InviteUsersDto } from './dto/invite-users.dto.js';
 import { AuthGuard } from '../../auth/auth.guard.js';
 import { BuildingAccessGuard } from '../../auth/building-access.guard.js';
-import { CurrentRole } from '../../decorators/current-role.decorator.js';
-import { Role } from '../../auth/role.js';
+import { CurrentAccess } from '../../decorators/current-access.decorator.js';
+import type { Access } from '../../auth/access.js';
 import { CurrentUserId } from '../../decorators/current-user-id.decorator.js';
 
 @UseGuards(AuthGuard, BuildingAccessGuard)
@@ -23,23 +23,28 @@ export class InviteController {
   inviteNewUser(
     @Param('buildingId') buildingId: string,
     @Body() payload: InviteUserDto,
-    @CurrentRole() role: Role,
+    @CurrentAccess() access: Access,
     @CurrentUserId() userId: string,
   ) {
-    return this.inviteService.generateInvite(buildingId, payload, role, userId);
+    return this.inviteService.generateInvite(
+      buildingId,
+      payload,
+      access.isAdmin,
+      userId,
+    );
   }
 
   @Post('/bulk')
   inviteNewUsers(
     @Param('buildingId') buildingId: string,
     @Body() payload: InviteUsersDto,
-    @CurrentRole() role: Role,
+    @CurrentAccess() access: Access,
     @CurrentUserId() userId: string,
   ) {
     return this.inviteService.generateInvites(
       buildingId,
       payload,
-      role,
+      access.isAdmin,
       userId,
     );
   }

@@ -19,8 +19,8 @@ import { Building } from '../../building/entities/building.entity.js';
 import { MailService } from '../../mail/mail.service.js';
 
 /** Building admins invite residents; only an admin can make someone a building admin */
-function assertCanGrant(inviter: Role, invites: InviteUserDto[]) {
-  if (inviter !== Role.ADMIN && invites.some((invite) => invite.role)) {
+function assertCanGrant(inviterIsAdmin: boolean, invites: InviteUserDto[]) {
+  if (!inviterIsAdmin && invites.some((invite) => invite.role)) {
     throw new ForbiddenException('Only an admin can invite a building admin');
   }
 }
@@ -46,10 +46,10 @@ export class InviteService {
   generateInvite(
     buildingId: string,
     inviteUserDto: InviteUserDto,
-    inviter: Role,
+    inviterIsAdmin: boolean,
     invitedBy: string,
   ) {
-    assertCanGrant(inviter, [inviteUserDto]);
+    assertCanGrant(inviterIsAdmin, [inviteUserDto]);
     return this.invite(buildingId, inviteUserDto, invitedBy);
   }
 
@@ -57,10 +57,10 @@ export class InviteService {
   async generateInvites(
     buildingId: string,
     inviteUserDto: InviteUsersDto,
-    inviter: Role,
+    inviterIsAdmin: boolean,
     invitedBy: string,
   ) {
-    assertCanGrant(inviter, inviteUserDto.invites);
+    assertCanGrant(inviterIsAdmin, inviteUserDto.invites);
     const invites: BuildingInvite[] = [];
     for (const invite of inviteUserDto.invites) {
       invites.push(await this.invite(buildingId, invite, invitedBy));
@@ -114,13 +114,8 @@ export class InviteService {
 
     const invitation = await clerkClient.invitations.createInvitation({
       emailAddress: normalized,
-      // TODO: guards still read the building and role from Clerk metadata; drop this
-      // once they read memberships, and the invite row alone gives the building.
-      publicMetadata: {
-        buildingId,
-        apartment,
-        ...(role && { role }),
-      },
+      // No metadata: the invite row gives the building, role and apartment, and becomes a
+      // membership when they sign up (UserService.syncFromClerk)
       redirectUrl: `${process.env.FRONTEND_URL ?? 'http://localhost:5173'}/register`,
       // Clerk's free plan can't customize its email, so we send our own
       notify: false,

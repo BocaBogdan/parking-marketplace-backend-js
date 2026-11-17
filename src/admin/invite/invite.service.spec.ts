@@ -6,7 +6,6 @@ import { BuildingInvite } from '../../membership/entities/building-invite.entity
 import { Building } from '../../building/entities/building.entity.js';
 import { UserService } from '../../user/user.service.js';
 import { MailService } from '../../mail/mail.service.js';
-import { Role } from '../../auth/role.js';
 
 vi.mock('@clerk/express', () => ({
   clerkClient: {
@@ -57,7 +56,7 @@ describe('InviteService', () => {
     await service.generateInvite(
       'b1',
       { email: ' Ana@Example.com ', apartment: '12' },
-      Role.ADMIN,
+      true,
       'admin_1',
     );
 
@@ -86,7 +85,7 @@ describe('InviteService', () => {
       service.generateInvite(
         'b1',
         { email: 'ana@example.com', apartment: '12' },
-        Role.ADMIN,
+        true,
         'admin_1',
       ),
     ).rejects.toThrow('SMTP down');

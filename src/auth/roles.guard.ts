@@ -1,7 +1,9 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Observable } from 'rxjs';
+import { Role } from './role.js';
+import type { AuthedRequest } from './access.js';
 
+/** `@Roles(Role.ADMIN)`: admins only. Runs after AuthGuard, which loads `access`. */
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
@@ -11,10 +13,10 @@ export class RolesGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
-
     if (!roles) return false;
 
-    const request = context.switchToHttp().getRequest();
-    return roles.includes(request['role']);
+    const request = context.switchToHttp().getRequest<AuthedRequest>();
+    // Building admins are per building; BuildingAccessGuard checks those
+    return roles.includes(Role.ADMIN) && request.access?.isAdmin === true;
   }
 }

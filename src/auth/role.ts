@@ -1,7 +1,7 @@
 /**
- * Stored as `role` in the Clerk user's public metadata. ADMIN manages every building and
- * is set by hand in the Clerk dashboard; BUILDING_ADMIN manages only the building in their
- * `buildingId` (where they also live) and is given through an invitation. No role is USER.
+ * ADMIN manages every building (`app_user.isAdmin`, set in the database); BUILDING_ADMIN
+ * manages the buildings where their membership has that role, given through an invitation.
+ * Roles come from the database, not Clerk. No role is USER.
  */
 export enum Role {
   ADMIN = 'ADMIN',

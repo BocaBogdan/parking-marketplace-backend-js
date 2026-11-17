@@ -10,6 +10,7 @@ import { CarModule } from './car/car.module.js';
 import { StorageModule } from './storage/storage.module.js';
 import { UserModule } from './user/user.module.js';
 import { FeatureFlagModule } from './feature-flag/feature-flag.module.js';
+import { AccessModule } from './auth/access.module.js';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import {
@@ -22,6 +23,7 @@ import {
     ConfigModule.forRoot({ isGlobal: true }),
     ThrottlerModule.forRoot([RATE_LIMIT]),
     DatabaseModule,
+    AccessModule,
     AdminModule,
     SpotModule,
     BuildingModule,

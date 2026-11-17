@@ -95,8 +95,8 @@ export class UserService {
         email: primary,
         firstName: clerkUser.firstName,
         lastName: clerkUser.lastName,
-        // Admins were marked in Clerk; once here, the database decides
-        isAdmin: existing?.isAdmin ?? metadata.role === Role.ADMIN,
+        // Only the database makes admins (set app_user.isAdmin by hand); Clerk never does
+        isAdmin: existing?.isAdmin ?? false,
       }),
     );
 

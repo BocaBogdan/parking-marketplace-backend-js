@@ -13,7 +13,7 @@ export class InviteUserDto {
   @IsString()
   apartment: string;
 
-  // Admins are set by hand in Clerk, never through an invitation
+  // Admins are marked in the database (app_user.isAdmin), never through an invitation
   @ApiProperty({ enum: [Role.BUILDING_ADMIN], required: false })
   @IsIn([Role.BUILDING_ADMIN])
   @IsOptional()
