@@ -14,6 +14,15 @@ export interface InviteMail {
   idempotencyKey: string;
   buildingName?: string;
   apartment?: string;
+  /** How long the link works, told to the invitee */
+  expiresInDays?: number;
+}
+
+/** "o zi", "7 zile", "30 de zile": Romanian puts "de" before 0 and 20+ (last two digits) */
+export function romanianDays(days: number) {
+  if (days === 1) return 'o zi';
+  const lastTwo = days % 100;
+  return lastTwo >= 1 && lastTwo <= 19 ? `${days} zile` : `${days} de zile`;
 }
 
 function escapeHtml(text: string) {
@@ -43,6 +52,7 @@ export class MailService {
     idempotencyKey,
     buildingName,
     apartment,
+    expiresInDays,
   }: InviteMail) {
     const admin = buildingName
       ? `Administratorul clădirii ${buildingName}`
@@ -61,6 +71,9 @@ export class MailService {
       'Contul e gratuit și nu îți dă nimeni acces la locul tău fără acordul tău.';
     const footer =
       'Primești acest email pentru că administratorul clădirii te-a adăugat. Dacă nu locuiești aici sau crezi că e o greșeală, îl poți ignora.';
+    const validity = expiresInDays
+      ? `Linkul e valabil ${romanianDays(expiresInDays)}. Dacă expiră, cere administratorului clădirii o invitație nouă.`
+      : undefined;
     const link = escapeHtml(url);
 
     await this.send(idempotencyKey, {
@@ -75,6 +88,7 @@ export class MailService {
         `Ce e ${APP_NAME}?\n${about}`,
         `Cum începi:\n${steps.map((step, i) => `  ${i + 1}. ${step}`).join('\n')}`,
         `Creează-ți contul: ${url}`,
+        ...(validity ? [validity] : []),
         reassurance,
         `---\n${footer}`,
       ].join('\n\n'),
@@ -91,7 +105,7 @@ export class MailService {
   <p style="margin: 28px 0">
     <a href="${link}" style="background: #2563eb; color: #fff; padding: 12px 20px; border-radius: 6px; text-decoration: none; font-weight: 600; display: inline-block">Creează-ți contul</a>
   </p>
-  <p>${reassurance}</p>
+  ${validity ? `<p style="font-weight: 600">${validity}</p>\n  ` : ''}<p>${reassurance}</p>
   <p style="font-size: 13px; color: #666">Dacă butonul nu merge, deschide linkul:<br><a href="${link}" style="color: #2563eb; word-break: break-all">${link}</a></p>
   <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 24px 0">
   <p style="font-size: 13px; color: #666">${footer}</p>

@@ -51,6 +51,10 @@ export class BuildingInvite {
   @Column({ type: 'varchar', nullable: true })
   clerkInvitationId: string | null;
 
+  /** When the current link stops working; null for invites that never had one */
+  @Column({ type: 'timestamptz', nullable: true })
+  expiresAt: Date | null;
+
   @Column({ type: 'enum', enum: InviteStatus, default: InviteStatus.PENDING })
   status: InviteStatus;
 

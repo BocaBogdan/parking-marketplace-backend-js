@@ -20,6 +20,10 @@ export class Building {
   @Column()
   description: string;
 
+  /** How long an invitation link to this building stays valid; Clerk's default is 30 */
+  @Column({ type: 'int', default: 30 })
+  inviteExpiryDays: number;
+
   /** Residents also see and book spots of the other buildings in this community */
   @Column({ type: 'uuid', nullable: true })
   communityId: string | null;

@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { InviteService } from './invite.service.js';
 import { InviteUserDto } from './dto/invite-user.dto.js';
 import { InviteUsersDto } from './dto/invite-users.dto.js';
@@ -47,5 +56,25 @@ export class InviteController {
       access.isAdmin,
       userId,
     );
+  }
+
+  /** A fresh link for a pending invite, e.g. after the old one expired */
+  @Post(':inviteId/resend')
+  resend(
+    @Param('buildingId', ParseUUIDPipe) buildingId: string,
+    @Param('inviteId', ParseUUIDPipe) inviteId: string,
+    @CurrentAccess() access: Access,
+  ) {
+    return this.inviteService.resend(buildingId, inviteId, access.isAdmin);
+  }
+
+  /** Cancels a pending invite so its link stops working and the email can be invited again */
+  @Delete(':inviteId')
+  revoke(
+    @Param('buildingId', ParseUUIDPipe) buildingId: string,
+    @Param('inviteId', ParseUUIDPipe) inviteId: string,
+    @CurrentAccess() access: Access,
+  ) {
+    return this.inviteService.revoke(buildingId, inviteId, access.isAdmin);
   }
 }

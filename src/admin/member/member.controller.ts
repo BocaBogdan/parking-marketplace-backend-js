@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -14,6 +15,9 @@ import { RolesGuard } from '../../auth/roles.guard.js';
 import { Roles } from '../../decorators/roles.decorator.js';
 import { Role } from '../../auth/role.js';
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto.js';
+import { CurrentUserId } from '../../decorators/current-user-id.decorator.js';
+import { CurrentAccess } from '../../decorators/current-access.decorator.js';
+import type { Access } from '../../auth/access.js';
 
 @UseGuards(AuthGuard, BuildingAccessGuard)
 @Controller('admin/:buildingId/member')
@@ -35,5 +39,16 @@ export class MemberController {
     @Body() { role }: UpdateMemberRoleDto,
   ) {
     return this.memberService.updateRole(buildingId, membershipId, role);
+  }
+
+  /** Admins remove anyone; building admins only residents, and not themselves */
+  @Delete(':membershipId')
+  remove(
+    @Param('buildingId', ParseUUIDPipe) buildingId: string,
+    @Param('membershipId', ParseUUIDPipe) membershipId: string,
+    @CurrentUserId() actorId: string,
+    @CurrentAccess() access: Access,
+  ) {
+    return this.memberService.remove(buildingId, membershipId, actorId, access);
   }
 }
