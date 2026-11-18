@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller.js';
 import { DatabaseModule } from './database/database.module.js';
@@ -12,7 +12,9 @@ import { UserModule } from './user/user.module.js';
 import { FeatureFlagModule } from './feature-flag/feature-flag.module.js';
 import { AccessModule } from './auth/access.module.js';
 import { CommunityModule } from './community/community.module.js';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { AuditMiddleware } from './audit/audit.middleware.js';
+import { AuditInterceptor } from './audit/audit.interceptor.js';
 import { ThrottlerModule } from '@nestjs/throttler';
 import {
   RATE_LIMIT,
@@ -36,6 +38,14 @@ import {
     CommunityModule,
   ],
   controllers: [AppController],
-  providers: [{ provide: APP_GUARD, useClass: UserThrottlerGuard }],
+  providers: [
+    { provide: APP_GUARD, useClass: UserThrottlerGuard },
+    { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
+  ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  /** Logs who changed what, including requests a guard refused */
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(AuditMiddleware).forRoutes('*');
+  }
+}

@@ -16,6 +16,8 @@ import { CommunityService } from '../community/community.service.js';
 import { Roles } from '../decorators/roles.decorator.js';
 import { AuthGuard } from '../auth/auth.guard.js';
 import { RolesGuard } from '../auth/roles.guard.js';
+import { Audit } from '../audit/audit.decorator.js';
+import type { Booking } from './entities/booking.entity.js';
 
 @UseGuards(AuthGuard)
 @Controller('booking')
@@ -25,6 +27,13 @@ export class BookingController {
     private readonly communityService: CommunityService,
   ) {}
 
+  @Audit('booking.create', (booking: Booking) => ({
+    booking: booking.id,
+    spot: booking.spotId,
+    car: booking.carId,
+    startsAt: booking.startsAt,
+    endsAt: booking.endsAt,
+  }))
   @Post()
   async create(
     @CurrentUserId() userId: string,
@@ -58,6 +67,7 @@ export class BookingController {
 
   // No PATCH: changing a booking would skip the availability checks, so cancel and rebook
 
+  @Audit('booking.cancel')
   @Delete(':id')
   remove(@CurrentUserId() userId: string, @Param('id') id: string) {
     return this.bookingService.remove(userId, id);

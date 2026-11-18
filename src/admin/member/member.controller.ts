@@ -18,6 +18,9 @@ import { UpdateMemberRoleDto } from './dto/update-member-role.dto.js';
 import { CurrentUserId } from '../../decorators/current-user-id.decorator.js';
 import { CurrentAccess } from '../../decorators/current-access.decorator.js';
 import type { Access } from '../../auth/access.js';
+import { Audit } from '../../audit/audit.decorator.js';
+import type { BuildingMembership } from '../../membership/entities/building-membership.entity.js';
+import type { MemberRemoval } from './member.service.js';
 
 @UseGuards(AuthGuard, BuildingAccessGuard)
 @Controller('admin/:buildingId/member')
@@ -30,6 +33,10 @@ export class MemberController {
   }
 
   /** Makes a member building admin or resident; admins only, building admins can't */
+  @Audit('member.role', (member: BuildingMembership) => ({
+    user: member.userId,
+    role: member.role,
+  }))
   @Patch(':membershipId')
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
@@ -42,6 +49,12 @@ export class MemberController {
   }
 
   /** Admins remove anyone; building admins only residents, and not themselves */
+  @Audit('member.remove', (removal: MemberRemoval) => ({
+    removedUser: removal.userId,
+    spotsDeleted: removal.spotsDeleted,
+    spotsKept: removal.spotsKept,
+    bookingsCancelled: removal.bookingsCancelled,
+  }))
   @Delete(':membershipId')
   remove(
     @Param('buildingId', ParseUUIDPipe) buildingId: string,

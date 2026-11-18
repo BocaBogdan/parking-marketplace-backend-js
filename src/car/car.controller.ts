@@ -15,12 +15,15 @@ import { AuthGuard } from '../auth/auth.guard.js';
 import { CurrentUserId } from '../decorators/current-user-id.decorator.js';
 import { RolesGuard } from '../auth/roles.guard.js';
 import { Roles } from '../decorators/roles.decorator.js';
+import { Audit } from '../audit/audit.decorator.js';
+import type { Car } from './entities/car.entity.js';
 
 @UseGuards(AuthGuard)
 @Controller('car')
 export class CarController {
   constructor(private readonly carService: CarService) {}
 
+  @Audit('car.create', (car: Car) => ({ car: car.id }))
   @Post()
   create(@CurrentUserId() userId: string, @Body() createCarDto: CreateCarDto) {
     return this.carService.create(userId, createCarDto);
@@ -43,6 +46,7 @@ export class CarController {
     return this.carService.findOne(userId, id);
   }
 
+  @Audit('car.update')
   @Patch(':id')
   update(
     @CurrentUserId() userId: string,
@@ -52,6 +56,7 @@ export class CarController {
     return this.carService.update(userId, id, updateCarDto);
   }
 
+  @Audit('car.delete')
   @Delete(':id')
   remove(@CurrentUserId() userId: string, @Param('id') id: string) {
     return this.carService.remove(userId, id);

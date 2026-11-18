@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { clerkClient } from '@clerk/express';
@@ -23,6 +23,9 @@ interface LegacyMetadata {
 
 @Injectable()
 export class UserService {
+  /** Changes made while reading /user/me, next to the request audit lines */
+  private readonly audit = new Logger('Audit');
+
   constructor(
     @InjectRepository(AppUser)
     private readonly userRepository: Repository<AppUser>,
@@ -99,6 +102,7 @@ export class UserService {
         isAdmin: existing?.isAdmin ?? false,
       }),
     );
+    if (!existing) this.audit.log(`${user.id} user.created`);
 
     if (metadata.buildingId) {
       await this.addMembership({
@@ -128,6 +132,9 @@ export class UserService {
         await this.inviteRepository.update(invite.id, {
           status: InviteStatus.ACCEPTED,
         });
+        this.audit.log(
+          `${user.id} invite.accepted invite=${invite.id} building=${invite.buildingId} role=${invite.role}`,
+        );
       }
     }
 

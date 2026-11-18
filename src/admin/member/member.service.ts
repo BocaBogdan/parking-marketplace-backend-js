@@ -18,6 +18,8 @@ import type { Access } from '../../auth/access.js';
 
 /** What removing a member changed, for the admin's confirmation */
 export interface MemberRemoval {
+  /** Who was removed */
+  userId: string;
   /** Their spots nobody else in the apartment could take over */
   spotsDeleted: number;
   /** Their spots handed to someone still living in the apartment */
@@ -162,7 +164,12 @@ export class MemberService {
       const { affected } = await cancel.execute();
 
       await manager.delete(BuildingMembership, { id: membership.id });
-      return { spotsDeleted, spotsKept, bookingsCancelled: affected ?? 0 };
+      return {
+        userId,
+        spotsDeleted,
+        spotsKept,
+        bookingsCancelled: affected ?? 0,
+      };
     });
 
     // The removal stands even if storage is briefly unreachable; the files are just left over

@@ -16,6 +16,11 @@ import { BuildingAccessGuard } from '../../auth/building-access.guard.js';
 import { CurrentAccess } from '../../decorators/current-access.decorator.js';
 import type { Access } from '../../auth/access.js';
 import { CurrentUserId } from '../../decorators/current-user-id.decorator.js';
+import { Audit } from '../../audit/audit.decorator.js';
+import {
+  InviteStatus,
+  type BuildingInvite,
+} from '../../membership/entities/building-invite.entity.js';
 
 @UseGuards(AuthGuard, BuildingAccessGuard)
 @Controller('admin/:buildingId/invite')
@@ -28,6 +33,12 @@ export class InviteController {
     return this.inviteService.findPending(buildingId);
   }
 
+  @Audit('invite.send', (invite: BuildingInvite) => ({
+    invite: invite.id,
+    role: invite.role,
+    status: invite.status,
+    expiresAt: invite.expiresAt,
+  }))
   @Post('/')
   inviteNewUser(
     @Param('buildingId') buildingId: string,
@@ -43,6 +54,10 @@ export class InviteController {
     );
   }
 
+  @Audit('invite.bulk', (invites: BuildingInvite[]) => ({
+    invites: invites.length,
+    joined: invites.filter((i) => i.status === InviteStatus.ACCEPTED).length,
+  }))
   @Post('/bulk')
   inviteNewUsers(
     @Param('buildingId') buildingId: string,
@@ -59,6 +74,10 @@ export class InviteController {
   }
 
   /** A fresh link for a pending invite, e.g. after the old one expired */
+  @Audit('invite.resend', (invite: BuildingInvite) => ({
+    status: invite.status,
+    expiresAt: invite.expiresAt,
+  }))
   @Post(':inviteId/resend')
   resend(
     @Param('buildingId', ParseUUIDPipe) buildingId: string,
@@ -69,6 +88,7 @@ export class InviteController {
   }
 
   /** Cancels a pending invite so its link stops working and the email can be invited again */
+  @Audit('invite.revoke')
   @Delete(':inviteId')
   revoke(
     @Param('buildingId', ParseUUIDPipe) buildingId: string,

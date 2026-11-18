@@ -16,12 +16,15 @@ import { RolesGuard } from '../auth/roles.guard.js';
 import { Roles } from '../decorators/roles.decorator.js';
 import { BuildingAccessGuard } from '../auth/building-access.guard.js';
 import { Role } from '../auth/role.js';
+import { Audit } from '../audit/audit.decorator.js';
+import type { Building } from './entities/building.entity.js';
 
 @UseGuards(AuthGuard)
 @Controller('building')
 export class BuildingController {
   constructor(private readonly buildingService: BuildingService) {}
 
+  @Audit('building.create', (building: Building) => ({ building: building.id }))
   @Post()
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
@@ -42,6 +45,9 @@ export class BuildingController {
     return this.buildingService.findOne(id);
   }
 
+  @Audit('building.update', (building?: Building | null) => ({
+    inviteExpiryDays: building?.inviteExpiryDays,
+  }))
   @Patch(':id')
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
@@ -52,6 +58,7 @@ export class BuildingController {
     return this.buildingService.update(id, updateBuildingDto);
   }
 
+  @Audit('building.delete')
   @Delete(':id')
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(Role.ADMIN)

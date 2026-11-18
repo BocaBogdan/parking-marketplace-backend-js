@@ -30,6 +30,8 @@ import { ApiConsumes } from '@nestjs/swagger';
 import { AvailabilityQueryDto } from './dto/availability-query.dto.js';
 import { StatsService } from '../stats/stats.service.js';
 import { StatsQueryDto } from '../stats/dto/stats-query.dto.js';
+import { Audit } from '../audit/audit.decorator.js';
+import type { Spot } from './entities/spot.entity.js';
 
 /** Same limit as the frontend's document picker */
 const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
@@ -43,6 +45,12 @@ export class SpotController {
     private readonly communityService: CommunityService,
   ) {}
 
+  @Audit('spot.create', (spot: Spot) => ({
+    spot: spot.id,
+    building: spot.buildingId,
+    status: spot.status,
+    underground: spot.underground,
+  }))
   @Post()
   // Multer stops reading past the limit, so an oversized upload never fills the memory
   @UseInterceptors(
@@ -115,6 +123,7 @@ export class SpotController {
     return this.statsService.forOwner(userId, id, range ?? '30d');
   }
 
+  @Audit('spot.update', (spot?: Spot) => ({ status: spot?.status }))
   @Patch(':id')
   update(
     @CurrentUserId() userId: string,
@@ -124,6 +133,7 @@ export class SpotController {
     return this.spotService.update(userId, id, updateSpotDto);
   }
 
+  @Audit('spot.delete')
   @Delete(':id')
   remove(@CurrentUserId() userId: string, @Param('id') id: string) {
     return this.spotService.remove(userId, id);

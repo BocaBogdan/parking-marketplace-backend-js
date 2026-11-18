@@ -5,6 +5,7 @@ import { RolesGuard } from '../auth/roles.guard.js';
 import { Roles } from '../decorators/roles.decorator.js';
 import { CurrentUserId } from '../decorators/current-user-id.decorator.js';
 import { Role } from '../auth/role.js';
+import { Audit } from '../audit/audit.decorator.js';
 
 @UseGuards(AuthGuard)
 @Controller('user')
@@ -17,6 +18,9 @@ export class UserController {
   }
 
   /** One-off import of the residents that signed up before memberships existed */
+  @Audit('user.sync', (result: { synced: number }) => ({
+    synced: result.synced,
+  }))
   @Post('/sync')
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(Role.ADMIN)

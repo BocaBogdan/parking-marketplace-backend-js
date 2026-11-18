@@ -16,6 +16,8 @@ import { Role } from '../auth/role.js';
 import { CommunityService } from './community.service.js';
 import { CreateCommunityDto } from './dto/create-community.dto.js';
 import { RenameCommunityDto } from './dto/rename-community.dto.js';
+import { Audit } from '../audit/audit.decorator.js';
+import type { Community } from './entities/community.entity.js';
 
 /** Grouping buildings is up to the admin, once their building admins have agreed */
 @UseGuards(AuthGuard, RolesGuard)
@@ -29,11 +31,16 @@ export class CommunityController {
     return this.communityService.findAll();
   }
 
+  @Audit('community.create', (community: Community) => ({
+    community: community.id,
+    buildings: community.buildings.map((building) => building.id).join(','),
+  }))
   @Post()
   create(@Body() dto: CreateCommunityDto) {
     return this.communityService.create(dto);
   }
 
+  @Audit('community.rename')
   @Patch(':id')
   rename(
     @Param('id', ParseUUIDPipe) id: string,
@@ -42,11 +49,13 @@ export class CommunityController {
     return this.communityService.rename(id, name);
   }
 
+  @Audit('community.delete')
   @Delete(':id')
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.communityService.remove(id);
   }
 
+  @Audit('community.addBuilding')
   @Post(':id/building/:buildingId')
   addBuilding(
     @Param('id', ParseUUIDPipe) id: string,
@@ -55,6 +64,7 @@ export class CommunityController {
     return this.communityService.addBuilding(id, buildingId);
   }
 
+  @Audit('community.removeBuilding')
   @Delete(':id/building/:buildingId')
   removeBuilding(
     @Param('id', ParseUUIDPipe) id: string,

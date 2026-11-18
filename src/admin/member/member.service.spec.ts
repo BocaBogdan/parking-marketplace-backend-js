@@ -172,6 +172,7 @@ describe('MemberService', () => {
       );
       expect(manager.delete).not.toHaveBeenCalledWith(Spot, { id: 's1' });
       expect(removal).toEqual({
+        userId: 'u1',
         spotsDeleted: 0,
         spotsKept: 1,
         bookingsCancelled: 0,

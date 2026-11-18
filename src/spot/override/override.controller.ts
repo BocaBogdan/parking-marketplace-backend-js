@@ -13,6 +13,8 @@ import { AuthGuard } from '../../auth/auth.guard.js';
 import { CurrentUserId } from '../../decorators/current-user-id.decorator.js';
 import { OverrideService } from './override.service.js';
 import { CreateOverrideDto } from './dto/create-override.dto.js';
+import { Audit } from '../../audit/audit.decorator.js';
+import type { SpotOverride } from './entities/spot-override.entity.js';
 
 /** "Free now" / "Busy" for a spot; only its owner may see or change them (404 otherwise) */
 @UseGuards(AuthGuard)
@@ -26,6 +28,12 @@ export class OverrideController {
     return this.overrideService.findActive(userId, spotId);
   }
 
+  @Audit('override.create', (override: SpotOverride) => ({
+    override: override.id,
+    type: override.type,
+    startsAt: override.startsAt,
+    endsAt: override.endsAt,
+  }))
   @Post()
   create(
     @CurrentUserId() userId: string,
@@ -35,6 +43,7 @@ export class OverrideController {
     return this.overrideService.create(userId, spotId, createOverrideDto);
   }
 
+  @Audit('override.end')
   @Delete(':id')
   @HttpCode(204)
   end(

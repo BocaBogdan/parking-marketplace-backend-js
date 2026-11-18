@@ -21,6 +21,7 @@ import { SetFeatureFlagDto } from './dto/set-feature-flag.dto.js';
 import { CurrentAccess } from '../decorators/current-access.decorator.js';
 import { requireMemberBuilding, type Access } from '../auth/access.js';
 import { CurrentFlagsQueryDto } from './dto/current-flags-query.dto.js';
+import { Audit } from '../audit/audit.decorator.js';
 
 @UseGuards(AuthGuard)
 @Controller()
@@ -49,6 +50,7 @@ export class FeatureFlagController {
     );
   }
 
+  @Audit('flag.create', (flag: { key: string }) => ({ key: flag.key }))
   @Post('feature-flags')
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
@@ -56,6 +58,7 @@ export class FeatureFlagController {
     return this.featureFlags.create(dto);
   }
 
+  @Audit('flag.delete')
   @Delete('feature-flags/:key')
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
@@ -70,6 +73,9 @@ export class FeatureFlagController {
     return this.featureFlags.forBuilding(buildingId);
   }
 
+  @Audit('flag.set', (_result, request) => ({
+    enabled: (request.body as SetFeatureFlagDto).enabled,
+  }))
   @Put('building/:buildingId/feature-flags/:key')
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
