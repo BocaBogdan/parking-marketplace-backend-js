@@ -21,6 +21,7 @@ import {
   requireMemberBuilding,
   type Access,
 } from '../auth/access.js';
+import { CommunityService } from '../community/community.service.js';
 import { AuthGuard } from '../auth/auth.guard.js';
 import { RolesGuard } from '../auth/roles.guard.js';
 import { Roles } from '../decorators/roles.decorator.js';
@@ -39,6 +40,7 @@ export class SpotController {
   constructor(
     private readonly spotService: SpotService,
     private readonly statsService: StatsService,
+    private readonly communityService: CommunityService,
   ) {}
 
   @Post()
@@ -72,15 +74,15 @@ export class SpotController {
   }
 
   @Get('/available')
-  findAvailable(
+  async findAvailable(
     @CurrentUserId() userId: string,
     @CurrentAccess() access: Access,
     @Query() { startsAt, endsAt }: AvailabilityQueryDto,
   ) {
-    // Every building the user lives in; each spot says which it's in
+    // Every building the user lives in plus their communities; each spot says which it's in
     return this.spotService.findAvailable(
       userId,
-      memberBuildingIds(access),
+      await this.communityService.visibleBuildingIds(memberBuildingIds(access)),
       startsAt,
       endsAt,
     );

@@ -227,7 +227,14 @@ describe('SpotService', () => {
 describe('SpotService availability', () => {
   const clauses: string[] = [];
   let parameters: Record<string, unknown> = {};
+  const joins: string[] = [];
   const builder = {
+    leftJoinAndMapOne: (
+      _map: string,
+      _entity: unknown,
+      _alias: string,
+      on: string,
+    ) => (joins.push(on), builder),
     where: (sql: string) => (clauses.push(sql), builder),
     andWhere: (sql: string) => (clauses.push(sql), builder),
     setParameters: (params: Record<string, unknown>) => {
@@ -252,6 +259,7 @@ describe('SpotService availability', () => {
 
   beforeEach(() => {
     clauses.length = 0;
+    joins.length = 0;
     parameters = {};
     spotRepository.createQueryBuilder.mockClear();
   });
@@ -260,6 +268,11 @@ describe('SpotService availability', () => {
     await service.findAvailable('u1', ['a', 'b'], startsAt, endsAt);
     expect(clauses).toContain('spot."buildingId" IN (:...buildingIds)');
     expect(parameters.buildingIds).toEqual(['a', 'b']);
+  });
+
+  it('names the building of each result, which may be a community one', async () => {
+    await service.findAvailable('u1', ['a'], startsAt, endsAt);
+    expect(joins).toEqual(['building.id::text = spot."buildingId"']);
   });
 
   it('opens underground spots only to garage owners of the same building', async () => {

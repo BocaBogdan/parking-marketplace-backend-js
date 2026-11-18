@@ -9,6 +9,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import type { Schedule } from '../schedule/entities/schedule.entity.js';
+import type { Building } from '../../building/entities/building.entity.js';
 import type { AppUser } from '../../user/entities/app-user.entity.js';
 
 export enum SpotStatus {
@@ -33,6 +34,12 @@ export class Spot {
 
   @Column()
   buildingId: string;
+
+  /**
+   * Set only by search, whose results can come from community buildings the user isn't in.
+   * Not a relation: `buildingId` is varchar, building ids are uuid.
+   */
+  building?: Building;
 
   /** Building of the owning apartment, which needn't be the one the spot is in */
   @Column({ type: 'varchar', nullable: true })

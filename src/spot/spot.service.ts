@@ -16,6 +16,7 @@ import { Booking } from '../booking/entities/booking.entity.js';
 import { TIME_ZONE } from '../common/time-zone.js';
 import { coverageSql } from './override/coverage.js';
 import { BuildingMembership } from '../membership/entities/building-membership.entity.js';
+import { Building } from '../building/entities/building.entity.js';
 import { findOwnedSpot, ownsSpotSql } from './ownership.js';
 import { FeatureFlagService } from '../feature-flag/feature-flag.service.js';
 import { SPOT_DOCUMENT_NOT_REQUIRED } from './spot-flags.js';
@@ -137,7 +138,7 @@ export class SpotService implements OnModuleInit {
     });
   }
 
-  /** Bookable spots of the buildings the user lives in; none for a user without one */
+  /** Bookable spots of the given buildings (the user's and their communities'); none without any */
   findAvailable(
     userId: string,
     buildingIds: string[],
@@ -179,8 +180,15 @@ export class SpotService implements OnModuleInit {
     startsAt: Date,
     endsAt: Date,
   ) {
+    // Results can come from community buildings the user isn't in, so they carry it
     return this.spotRepository
       .createQueryBuilder('spot')
+      .leftJoinAndMapOne(
+        'spot.building',
+        Building,
+        'building',
+        'building.id::text = spot."buildingId"',
+      )
       .where('spot.status = :confirmed')
       .andWhere('spot."buildingId" IN (:...buildingIds)')
       .andWhere(

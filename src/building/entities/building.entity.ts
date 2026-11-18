@@ -2,9 +2,12 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  JoinColumn,
+  ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import type { Community } from '../../community/entities/community.entity.js';
 
 @Entity()
 export class Building {
@@ -16,6 +19,14 @@ export class Building {
 
   @Column()
   description: string;
+
+  /** Residents also see and book spots of the other buildings in this community */
+  @Column({ type: 'uuid', nullable: true })
+  communityId: string | null;
+
+  @ManyToOne('Community', 'buildings', { onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'communityId' })
+  community: Community | null;
 
   @CreateDateColumn()
   createdAt: Date;

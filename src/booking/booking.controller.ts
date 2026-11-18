@@ -12,6 +12,7 @@ import { CreateBookingDto } from './dto/create-booking.dto.js';
 import { CurrentUserId } from '../decorators/current-user-id.decorator.js';
 import { CurrentAccess } from '../decorators/current-access.decorator.js';
 import { memberBuildingIds, type Access } from '../auth/access.js';
+import { CommunityService } from '../community/community.service.js';
 import { Roles } from '../decorators/roles.decorator.js';
 import { AuthGuard } from '../auth/auth.guard.js';
 import { RolesGuard } from '../auth/roles.guard.js';
@@ -19,17 +20,21 @@ import { RolesGuard } from '../auth/roles.guard.js';
 @UseGuards(AuthGuard)
 @Controller('booking')
 export class BookingController {
-  constructor(private readonly bookingService: BookingService) {}
+  constructor(
+    private readonly bookingService: BookingService,
+    private readonly communityService: CommunityService,
+  ) {}
 
   @Post()
-  create(
+  async create(
     @CurrentUserId() userId: string,
     @CurrentAccess() access: Access,
     @Body() createBookingDto: CreateBookingDto,
   ) {
+    // Spots of the user's buildings and of buildings in a community with them
     return this.bookingService.create(
       userId,
-      memberBuildingIds(access),
+      await this.communityService.visibleBuildingIds(memberBuildingIds(access)),
       createBookingDto,
     );
   }
