@@ -27,7 +27,9 @@ export class AccessService {
   /**
    * The user's admin flag and memberships. A user with no membership whose Clerk metadata
    * still names a building (invited before memberships existed, and missed by the one-off
-   * sync) gets it as a membership; metadata never grants anything by itself.
+   * sync) gets it as a membership; metadata never grants anything by itself. A user
+   * without an `app_user` row is skipped (the membership's foreign key needs it):
+   * `UserService.ensureUser` creates the row on `/me` and adds the same membership.
    */
   async load(userId: string, legacy?: LegacyMetadata): Promise<Access> {
     const [user, memberships] = await Promise.all([
@@ -37,7 +39,7 @@ export class AccessService {
       }),
       this.findMemberships(userId),
     ]);
-    if (memberships.length === 0 && legacy?.buildingId) {
+    if (user && memberships.length === 0 && legacy?.buildingId) {
       await this.membershipRepository
         .createQueryBuilder()
         .insert()

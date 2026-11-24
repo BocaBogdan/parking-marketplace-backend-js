@@ -56,7 +56,7 @@ describe('AccessService', () => {
   });
 
   it('turns a legacy metadata building into a membership when there is none', async () => {
-    userRepository.findOne.mockResolvedValue(null);
+    userRepository.findOne.mockResolvedValue({ isAdmin: false });
     membershipRepository.find
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([resident]);
@@ -74,8 +74,16 @@ describe('AccessService', () => {
     expect(access.memberships).toEqual([resident]);
   });
 
-  it('ignores legacy metadata once the user has memberships', async () => {
+  it('leaves legacy metadata to /me when the user has no row yet', async () => {
     userRepository.findOne.mockResolvedValue(null);
+    membershipRepository.find.mockResolvedValue([]);
+    const access = await service.load('u1', { buildingId: 'b1' });
+    expect(values).not.toHaveBeenCalled();
+    expect(access).toEqual({ isAdmin: false, memberships: [] });
+  });
+
+  it('ignores legacy metadata once the user has memberships', async () => {
+    userRepository.findOne.mockResolvedValue({ isAdmin: false });
     membershipRepository.find.mockResolvedValue([resident]);
     await service.load('u1', { buildingId: 'other' });
     expect(values).not.toHaveBeenCalled();
