@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { AccessService } from './access.service.js';
@@ -80,6 +81,20 @@ describe('AccessService', () => {
     const access = await service.load('u1', { buildingId: 'b1' });
     expect(values).not.toHaveBeenCalled();
     expect(access).toEqual({ isAdmin: false, memberships: [] });
+  });
+
+  it('lets the user in when the legacy membership cannot be added', async () => {
+    const warn = vi
+      .spyOn(Logger.prototype, 'warn')
+      .mockImplementation(() => {});
+    userRepository.findOne.mockResolvedValue({ isAdmin: false });
+    membershipRepository.find.mockResolvedValue([]);
+    execute.mockRejectedValueOnce(new Error('foreign key'));
+    const access = await service.load('u1', { buildingId: 'deleted' });
+    expect(access).toEqual({ isAdmin: false, memberships: [] });
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('u1 legacy membership skipped building=deleted'),
+    );
   });
 
   it('ignores legacy metadata once the user has memberships', async () => {

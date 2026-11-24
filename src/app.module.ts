@@ -12,7 +12,7 @@ import { UserModule } from './user/user.module.js';
 import { FeatureFlagModule } from './feature-flag/feature-flag.module.js';
 import { AccessModule } from './auth/access.module.js';
 import { CommunityModule } from './community/community.module.js';
-import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { AuditMiddleware } from './audit/audit.middleware.js';
 import { AuditInterceptor } from './audit/audit.interceptor.js';
 import { ThrottlerModule } from '@nestjs/throttler';
@@ -20,6 +20,7 @@ import {
   RATE_LIMIT,
   UserThrottlerGuard,
 } from './common/user-throttler.guard.js';
+import { AllExceptionsFilter } from './common/all-exceptions.filter.js';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import {
   providers: [
     { provide: APP_GUARD, useClass: UserThrottlerGuard },
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
+    { provide: APP_FILTER, useClass: AllExceptionsFilter },
   ],
 })
 export class AppModule implements NestModule {

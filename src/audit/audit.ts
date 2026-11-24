@@ -17,6 +17,8 @@ export interface AuditRecord {
 export type AuditedRequest = Request & {
   userId?: string;
   audit?: AuditRecord;
+  /** Set by AllExceptionsFilter on a server error; returned to the client too */
+  errorId?: string;
 };
 
 /** Keys that would put personal data in the logs; dropped even if a describer adds one */

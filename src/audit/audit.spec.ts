@@ -60,9 +60,26 @@ describe('AuditMiddleware', () => {
     response.emit('finish');
   }
 
-  it('skips reads', () => {
+  it('skips successful reads', () => {
     run({ method: 'GET', originalUrl: '/api/spot/mine' }, 200);
     expect(log).not.toHaveBeenCalled();
+  });
+
+  it('logs failed reads with the error id', () => {
+    run(
+      {
+        method: 'GET',
+        originalUrl: '/api/user/me',
+        userId: 'user_1',
+        errorId: 'abcd1234',
+      },
+      500,
+    );
+    expect(error).toHaveBeenCalledWith(
+      expect.stringMatching(
+        /^user_1 GET \/api\/user\/me 500 \d+ms errorId=abcd1234$/,
+      ),
+    );
   });
 
   it('logs who did what, on which ids, with the result', () => {
