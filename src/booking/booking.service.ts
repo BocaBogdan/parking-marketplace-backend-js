@@ -6,7 +6,9 @@ import {
 } from '@nestjs/common';
 import { CreateBookingDto } from './dto/create-booking.dto.js';
 import { DataSource, QueryFailedError, Repository } from 'typeorm';
-import { Booking } from './entities/booking.entity.js';
+import { Booking, type SpotSummary } from './entities/booking.entity.js';
+import { Spot } from '../spot/entities/spot.entity.js';
+import { Building } from '../building/entities/building.entity.js';
 import { Car } from '../car/entities/car.entity.js';
 import { InjectRepository } from '@nestjs/typeorm';
 import { SpotService } from '../spot/spot.service.js';
@@ -22,6 +24,8 @@ export class BookingService {
   constructor(
     @InjectRepository(Booking)
     private readonly bookingRepository: Repository<Booking>,
+    @InjectRepository(Spot)
+    private readonly spotRepository: Repository<Spot>,
     private readonly spotService: SpotService,
     private readonly dataSource: DataSource,
   ) {}
@@ -87,18 +91,67 @@ export class BookingService {
     return this.bookingRepository.find();
   }
 
-  mine(userId: string) {
-    return this.bookingRepository.find({
+  /** The driver's bookings, soonest first, each with the spot they reserved */
+  async mine(userId: string) {
+    const bookings = await this.bookingRepository.find({
       where: { userId },
       order: { startsAt: 'ASC' },
     });
+    return this.withSpots(bookings);
   }
 
   /** The driver's own booking; anyone else's is reported as missing */
   async findOne(userId: string, id: string) {
     const booking = await this.bookingRepository.findOneBy({ id, userId });
     if (!booking) throw new NotFoundException('Booking not found');
-    return booking;
+    const [withSpot] = await this.withSpots([booking]);
+    return withSpot;
+  }
+
+  /**
+   * Adds which spot each booking is for, in one query. The building comes along because
+   * community spots are in buildings the driver can't look up; a deleted spot is null.
+   */
+  private async withSpots(bookings: Booking[]) {
+    const ids = [...new Set(bookings.map((booking) => booking.spotId))];
+    const spots = ids.length
+      ? await this.spotRepository
+          .createQueryBuilder('spot')
+          .leftJoinAndMapOne(
+            'spot.building',
+            Building,
+            'building',
+            'building.id::text = spot."buildingId"',
+          )
+          .select([
+            'spot.id',
+            'spot.number',
+            'spot.underground',
+            'spot.description',
+            'building.id',
+            'building.name',
+          ])
+          .where('spot.id IN (:...ids)', { ids })
+          .getMany()
+      : [];
+    const summaries = new Map<string, SpotSummary>(
+      spots.map((spot) => [
+        spot.id,
+        {
+          id: spot.id,
+          number: spot.number,
+          underground: spot.underground,
+          description: spot.description,
+          building: spot.building
+            ? { id: spot.building.id, name: spot.building.name }
+            : null,
+        },
+      ]),
+    );
+    for (const booking of bookings) {
+      booking.spot = summaries.get(booking.spotId) ?? null;
+    }
+    return bookings;
   }
 
   /** Only the driver cancels their booking */
